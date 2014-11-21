@@ -4,7 +4,7 @@
 #include <string>
 #include <dirent.h>
 #include "GRTestProjectCLP.h"
-#include "GroupwiseRegistration.h"
+#include <sstream>
 
 const char * VTKSUFFIX = ".vtk";
 const char * TXTSUFFIX = ".txt";
@@ -31,28 +31,79 @@ std::string removePathAndSuffix(std::string fileName){
 	return fileWithoutPath;
 }
 
+bool checkPropList(std::string propDirPath, std::string fileName){
+	std::vector<std::string> propDirList;
+	propDirList = openDirectory(propDirPath);
+	bool hasProp = false;
+	for(int i = 0; i < propDirList.size(); i++){
+		if(propDirList[i].find(fileName) != std::string::npos)
+			hasProp = true;
+	}
+	return hasProp;
+}
+
+std::vector<std::string> sortSurfFiles (std::string surfPath, std::string propPath, std::string ID){
+	
+	std::vector<std::string> directoryFileList;
+	directoryFileList = openDirectory(surfPath);
+	std::vector<std::string> sortedFileList;
+	std::string absPathFileName;
+	int substring;
+	std::vector<std::string>::iterator it;
+	if (directoryFileList.size() > 0) {
+		bool doesHaveProp = false;
+		for (int listIndex = 0; listIndex < directoryFileList.size(); listIndex++) {
+			std::string currentString = directoryFileList[listIndex];
+			it = directoryFileList.begin() + listIndex;
+			absPathFileName = surfPath;
+			substring = currentString.find(ID);
+		  	if (substring != std::string::npos) {
+				absPathFileName = absPathFileName + "/" + currentString;
+		    	sortedFileList.push_back(absPathFileName);
+				doesHaveProp = checkPropList(propPath, currentString);
+				if(!doesHaveProp){
+					std::cout << "\nWARNING: PROPERTIES FOR " <<currentString<< " DO NOT EXIST. IT HAS BEEN REMOVED\n" << std::endl ;
+					sortedFileList.erase(sortedFileList.begin() + listIndex);
+				}
+		  	}
+/*			if(!doesHaveProp){
+				std::cout << "\nWARNING: PROPERTIES FOR " << ID << " DO NOT EXIST.\n" << std::endl ;
+				sortedFileList.erase(it);
+//				std::cout<< sortedFileList[] << std::endl ;
+			}*/
+		}
+
+/*		std::cout << "size: " << sortedFileList.size() << std::endl;
+		if(!doesHaveProp){
+			std::cout << "\nWARNING: PROPERTIES FOR " << ID << " DO NOT EXIST.\n" << std::endl ;
+			sortedFileList.erase(it);
+//			std::cout<< sortedFileList[] << std::endl ;
+		}
+		std::cout << "new size: " << sortedFileList.size() << std::endl;*/
+	}
+	return sortedFileList;
+}
 std::vector<std::string> sortFiles (std::string path, std::string ID){
 	
 	std::vector<std::string> directoryFileList;
 	directoryFileList = openDirectory(path);
 	std::vector<std::string> sortedFileList;
 	std::string absPathFileName;
+	int substring;
+	std::vector<std::string>::iterator it;
 	if (directoryFileList.size() > 0) {
 		bool doesHaveProp = false;
 		for (int listIndex = 0; listIndex < directoryFileList.size(); listIndex++) {
 			std::string currentString = directoryFileList[listIndex];
+			it = directoryFileList.begin() + listIndex;
 			absPathFileName = path;
-			int substring = currentString.find(ID);
+			substring = currentString.find(ID);
 		  	if (substring != std::string::npos) {
 				absPathFileName = absPathFileName + "/" + currentString;
 		    		sortedFileList.push_back(absPathFileName);
-				doesHaveProp = true;
 		  	}
 		}
-		if(!doesHaveProp)
-			std::cout << "\nWARNING: PROPERTIES FOR " << ID << " DO NOT EXIST.\n" << std::endl ;
 	}
-
 	return sortedFileList;
 }
 
@@ -98,16 +149,22 @@ int main(int argc , char* argv[])
 	int tempSize = tempPropFiles.size();
 	extList = extensions;
 	int extSize = extList.size();
-	
-	for(int i = 0; i < extSize; i++){						//filters based on desired ext
-		extSpecifiedTempPropList = sortFiles(tempDir, extList[i]);
-		for(int j = 0; j < extSpecifiedTempPropList.size(); j++){
-			extSpecifiedTempPropFiles.push_back(extSpecifiedTempPropList[j]);
+	std::ostringstream ss0 ;
+	ss0 << tempDir ;
+	std::string tempDirString = ss0.str() ;
+	if(!tempDirString.empty()){
+		for(int i = 0; i < extSize; i++){						//filters based on desired ext
+			extSpecifiedTempPropList = sortFiles(tempDir, extList[i]);
+			for(int j = 0; j < extSpecifiedTempPropList.size(); j++){
+				extSpecifiedTempPropFiles.push_back(extSpecifiedTempPropList[j]);
+			}
 		}
-	}
+	}	
+	else
+		std::cout << "Warning: No input for '-t'." << std::endl ;
+
 	int extTempPropSize = extSpecifiedTempPropFiles.size();
-	char **tempProp = NULL;
-	tempProp = putFilesInCharList(extSpecifiedTempPropFiles, extTempPropSize);
+	char **tempProp = putFilesInCharList(extSpecifiedTempPropFiles, extTempPropSize);
 	std::cout<<"Template model properties: "<< tempDir << std::endl ;
 	for(int i = 0; i < extTempPropSize; i++){
 		std::cout<< "	" << tempProp[i] << ' ' << std::endl ;
@@ -124,12 +181,23 @@ int main(int argc , char* argv[])
 	std::vector<std::string> surfaceFiles, coefficientFiles, allPropertyFiles, extSpecifiedPropFiles, mapFiles;
 	
 //Handling of Surface directory**********************************************************
-	
-	surfaceFiles = sortFiles(surfDir, VTKSUFFIX);
+
+	std::ostringstream ss ;
+	ss << surfDir ;
+	std::string surfDirString = ss.str() ;
+	std::ostringstream ss1 ;
+	ss1 << propDir ;
+	std::string propDirString = ss1.str() ;
+	if(!surfDirString.empty()){
+		if(!propDirString.empty())
+			surfaceFiles = sortSurfFiles(surfDir, propDir, VTKSUFFIX);
+		else
+			std::cout << "Warning: No input for '-p'." << std::endl ;
+	}
 	int surfSize = surfaceFiles.size();
-	char **surfFileList = NULL;
-	surfFileList = putFilesInCharList(surfaceFiles, surfSize);
-	std::cout<<"Surface Directory: "<< surfDir << " " << surfSize << std::endl ;
+	std::cout << "Surf size: " << surfSize << std::endl;
+	char **surfFileList = putFilesInCharList(surfaceFiles, surfSize);
+	std::cout<<"Surface Directory: "<< surfDir << std::endl ;
 	for(int i = 1; i < surfSize; i++)
 		std::cout<< "	" << surfFileList[i] << ' ' << std::endl ;
 
@@ -137,37 +205,50 @@ int main(int argc , char* argv[])
 
 	std::string surfFileWithoutPath;
 	std::vector<std::string> foundPropFiles ;
-	for(int i = 0; i < surfSize; i++){					//puts all props w/corresponding surf in list
-		surfFileWithoutPath = removePathAndSuffix(surfFileList[i]);
-		foundPropFiles = sortFiles(propDir, surfFileWithoutPath);
-		for(int j = 0; j < foundPropFiles.size(); j++)
-			allPropertyFiles.push_back(foundPropFiles[j]);
-	}
-	std::vector<std::string> extSpecifiedPropList ;
-	for(int i = 0; i < extSize; i++){						//filters props based on desired ext
-		extSpecifiedPropList = sortFiles(allPropertyFiles, extList[i]);
-		for(int j = 0; j < extSpecifiedPropList.size(); j++){
+	if(!propDirString.empty()){
+		for(int i = 0; i < surfSize; i++){					//puts all props w/corresponding surf in list
+			surfFileWithoutPath = removePathAndSuffix(surfFileList[i]);
+			foundPropFiles = sortFiles(propDir, surfFileWithoutPath);
+			for(int j = 0; j < foundPropFiles.size(); j++)
+				allPropertyFiles.push_back(foundPropFiles[j]);
+		}
+		std::vector<std::string> extSpecifiedPropList ;
+		for(int i = 0; i < extSize; i++){						//filters props based on desired ext
+			extSpecifiedPropList = sortFiles(allPropertyFiles, extList[i]);
+			for(int j = 0; j < extSpecifiedPropList.size(); j++){
 			extSpecifiedPropFiles.push_back(extSpecifiedPropList[j]);
+			}
+		}
+		int extPropSize = extSpecifiedPropFiles.size();
+		for(int i = 0; i < extPropSize; i++){					//removes files w/ "974644"
+			std::vector<std::string>::iterator it = extSpecifiedPropFiles.begin() +i;
+			std::string theCurrentFile = extSpecifiedPropFiles[i];
+			if(theCurrentFile.find("974644") != std::string::npos){
+				extSpecifiedPropFiles.erase(it);
+//				std::cout<< theCurrentFile << std::endl;
+			}
+		}
+		int newExtPropSize = extSpecifiedPropFiles.size();
+		char **propFileList = putFilesInCharList(extSpecifiedPropFiles, newExtPropSize);
+//		std::cout<< "HERE" << std::endl;
+		std::cout<<"Property Directory: "<< propDir << std::endl ;
+		for(int i = 0; i < newExtPropSize; i++){
+			std::cout<< "	" << propFileList[i] << ' ' << std::endl ;
 		}
 	}
-	int extPropSize = extSpecifiedPropFiles.size();
-	char **propFileList = NULL;
-	propFileList = putFilesInCharList(extSpecifiedPropFiles, extPropSize);
-	std::cout<<"Property Directory: "<< propDir << std::endl ;
-	for(int i = 1; i < extPropSize; i++){
-		std::cout<< "	" << propFileList[i] << ' ' << std::endl ;
-	}
-	
 //Handling of Coefficient directory********************************************************
-
-	coefficientFiles = sortFiles(spharmDir, COEFFSUFFIX);
-	int coeffSize = coefficientFiles.size();
-	char **coeffFileList = NULL;
-	coeffFileList = putFilesInCharList(coefficientFiles, coeffSize);
-	std::cout<<"Coefficient Directory: "<< spharmDir << std::endl ;
-	for(int i = 1; i < coeffSize; i++)
-		std::cout<< "	" << coeffFileList[i] << ' ' << std::endl ;
-
+	
+	std::ostringstream ss2 ;
+	ss2 << spharmDir ;
+	std::string spharmDirString = ss2.str() ;
+	if(!spharmDirString.empty()){
+		coefficientFiles = sortFiles(spharmDir, COEFFSUFFIX);
+		int coeffSize = coefficientFiles.size();
+		char **coeffFileList = putFilesInCharList(coefficientFiles, coeffSize);
+		std::cout<<"Coefficient Directory: "<< spharmDir << std::endl ;
+		for(int i = 1; i < coeffSize; i++)
+			std::cout<< "	" << coeffFileList[i] << ' ' << std::endl ;
+	}
 /*Handling of Map directory (delete) *****************************************************************
 
 	mapFiles = sortFiles(mapDir, CORRPREFIX);
@@ -177,10 +258,6 @@ int main(int argc , char* argv[])
 	for(int i = 1; i < mapSize; i++)
 		std::cout<< "	" << mapFileList[i] << ' ' << std::endl ;
 */
-	
-	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
-	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, log);
-	
 	return 0 ;	
 } 													//end of main
 
