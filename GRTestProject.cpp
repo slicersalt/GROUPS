@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include "GRTestProjectCLP.h"
 #include <sstream>
+#include "GroupwiseRegistration.h"
 
 const char * VTKSUFFIX = ".vtk";
 const char * TXTSUFFIX = ".txt";
@@ -146,7 +147,7 @@ int main(int argc , char* argv[])
 			}
 		}
 		int extTempPropSize = extSpecifiedTempPropFiles.size();
-		char **tempProp = putFilesInCharList(extSpecifiedTempPropFiles, extTempPropSize);
+		tempProp = putFilesInCharList(extSpecifiedTempPropFiles, extTempPropSize);
 		std::cout<<"Template model properties: "<< tempDir << std::endl ;
 		for(int i = 0; i < extTempPropSize; i++){
 			std::cout<< "	" << tempProp[i] << ' ' << std::endl ;
@@ -156,7 +157,7 @@ int main(int argc , char* argv[])
 		std::cout << "Warning: No input for '-t'." << std::endl ;
 		tempProp = NULL;
 	}
-
+	
 	char *sph = (char *) sphere.c_str();
 	char *log = (char *) logfile.c_str();
 
@@ -182,7 +183,7 @@ int main(int argc , char* argv[])
 			surfSize = surfaceFiles.size();
 			surfFileList = putFilesInCharList(surfaceFiles, surfSize);
 			std::cout<<"Surface Directory: "<< surfDir << std::endl ;
-			for(int i = 1; i < surfSize; i++)
+			for(int i = 0; i < surfSize; i++)
 			std::cout<< "	" << surfFileList[i] << ' ' << std::endl ;
 		}
 		else
@@ -237,5 +238,14 @@ int main(int argc , char* argv[])
 	}
 	else
 		coeffFileList = NULL;
-	return 0 ;	
+	
+	bool addLoc = true;
+	int maxIter = 30000;
+	
+// Call main procedure
+	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
+	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, log, coeffFileList, maxIter);
+	
+	return 0 ;
+	
 }//end of main

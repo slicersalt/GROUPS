@@ -8,19 +8,21 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 {
 }
 
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff)
+GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, bool propLoc, char *coeffLog, char **coeff, int maxIter)
 {
+	m_maxIter = maxIter;
 	m_nSubj = nSubj;
 	m_nProperties = nProperties;
-	init_multi(sphere, tmpDepth, subjDepth, coeff, nSubj, deg, nProperties);
+	init_multi(sphere, tmpDepth, subjDepth, coeff, nSubj, deg, nProperties, propLoc);
 	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
 	else m_clfp = NULL;
 	optimization();
 	if (coeffLog != NULL) fclose(m_clfp);
 }
 
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, int nSubj, int deg, char *coeffLog, int nProperties)
+GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, int nSubj, int deg, char *coeffLog, int nProperties, int maxIter)
 {
+	m_maxIter = maxIter;
 	m_nSubj = nSubj;
 	m_nProperties = nProperties;
 	init(sphere, tmpDepth, subjDepth, coeff, correspondence, nSubj, deg, nProperties);
@@ -40,7 +42,7 @@ GroupwiseRegistration::~GroupwiseRegistration(void)
 	delete [] m_updated;
 }
 
-void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, int nSubj, int deg, int nProperties)
+void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, int nSubj, int deg, int nProperties, bool propLoc)
 {
 	// unit sphere information
 	cout << "Loading unit sphere information..\n";
@@ -52,27 +54,45 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 	m_entropy = new entropy[m_sphere->nFace()];
 
 	int nDepth = m_sphere->nVertex();
+	if (propLoc) nProperties += 3;
 	m_depth = new float[nDepth * nProperties];
 	m_meanDepth = new float[nProperties];
 	m_maxDepth = new float[nProperties];
 	m_minDepth = new float[nProperties];
 
+	int count = 0;
 	for (int n = 0; n < nProperties; n++)
 	{
-		FILE *fp = fopen(tmpDepth[n], "r");
-		char line[1024];
-		fgets(line, sizeof(line), fp);
-		fgets(line, sizeof(line), fp);
-		fgets(line, sizeof(line), fp);
-		for (int i = 0; i < nDepth && !feof(fp); i++)
+		if (n >= nProperties - 3 && propLoc)
 		{
-			fscanf(fp, "%f", &m_depth[nDepth * n + i]);
-			//if (m_depth[i] > 0) m_depth[i] = 0;
+			for (int i = 0; i < nDepth; i++)
+			{
+				Vertex *v = (Vertex *)m_sphere->vertex(i);
+				const float *v0 = v->fv();
+				m_depth[nDepth * n + i] = v0[count];
+			}
+			m_meanDepth[n] = Statistics::mean(m_depth, nDepth);
+			m_maxDepth[n] = Statistics::max(m_depth, nDepth);
+			m_minDepth[n] = Statistics::min(m_depth, nDepth);
+			count++;
 		}
-		fclose(fp);
-		m_meanDepth[n] = Statistics::mean(m_depth, nDepth);
-		m_maxDepth[n] = Statistics::max(m_depth, nDepth);
-		m_minDepth[n] = Statistics::min(m_depth, nDepth);
+		else
+		{
+			FILE *fp = fopen(tmpDepth[n], "r");
+			char line[1024];
+			fgets(line, sizeof(line), fp);
+			fgets(line, sizeof(line), fp);
+			fgets(line, sizeof(line), fp);
+			for (int i = 0; i < nDepth && !feof(fp); i++)
+			{
+				fscanf(fp, "%f", &m_depth[nDepth * n + i]);
+				//if (m_depth[i] > 0) m_depth[i] = 0;
+			}
+			fclose(fp);
+			m_meanDepth[n] = Statistics::mean(m_depth, nDepth);
+			m_maxDepth[n] = Statistics::max(m_depth, nDepth) - m_meanDepth[n];
+			m_minDepth[n] = Statistics::min(m_depth, nDepth) - m_meanDepth[n];
+		}
 	}
 
 	//cout << "Depth Range: [" << m_minDepth << ", " << m_maxDepth << "]\n";
@@ -200,26 +220,45 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		m_spharm[subj].minDepth = new float[nProperties];
 		m_spharm[subj].depth = new float[nDepth * nProperties];
 		
+		count = 0;
 		for (int n = 0; n < nProperties; n++)
 		{
-			cout << "\t" << subjDepth[nSubj * n + subj] << endl;
-			FILE *fp = fopen(subjDepth[nSubj * n + subj], "r");
-			char line[1024];
-			fgets(line, sizeof(line), fp);
-			fgets(line, sizeof(line), fp);
-			fgets(line, sizeof(line), fp);
-			//for (int i = 0; i < nDepth && !feof(fp); i++)
-			for (int i = 0; i < nDepth; i++)
+			if (n >= nProperties - 3 && propLoc)
 			{
-				fscanf(fp, "%f", &m_spharm[subj].depth[nDepth * n + i]);
-				//if (m_spharm[subj].depth[n * nProperties + i] > 0) m_spharm[subj].depth[n * nProperties + i] = 0;
+				for (int i = 0; i < nDepth; i++)
+				{
+					Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);
+					const float *v0 = v->fv();
+					m_spharm[subj].depth[nDepth * n + i] = v0[count];
+				}
+				count++;
+				m_spharm[subj].meanDepth[n] = Statistics::mean(m_spharm[subj].depth, nDepth);
+				m_spharm[subj].maxDepth[n] = Statistics::max(m_spharm[subj].depth, nDepth);
+				m_spharm[subj].minDepth[n] = Statistics::min(m_spharm[subj].depth, nDepth);
+				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
+				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
 			}
-			fclose(fp);
-			m_spharm[subj].meanDepth[n] = Statistics::mean(m_spharm[subj].depth, nDepth);
-			m_spharm[subj].maxDepth[n] = Statistics::max(m_spharm[subj].depth, nDepth);
-			m_spharm[subj].minDepth[n] = Statistics::min(m_spharm[subj].depth, nDepth);
-			if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
-			if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
+			else
+			{
+				cout << "\t" << subjDepth[nSubj * n + subj] << endl;
+				FILE *fp = fopen(subjDepth[nSubj * n + subj], "r");
+				char line[1024];
+				fgets(line, sizeof(line), fp);
+				fgets(line, sizeof(line), fp);
+				fgets(line, sizeof(line), fp);
+				//for (int i = 0; i < nDepth && !feof(fp); i++)
+				for (int i = 0; i < nDepth; i++)
+				{
+					fscanf(fp, "%f", &m_spharm[subj].depth[nDepth * n + i]);
+					//if (m_spharm[subj].depth[n * nProperties + i] > 0) m_spharm[subj].depth[n * nProperties + i] = 0;
+				}
+				fclose(fp);
+				m_spharm[subj].meanDepth[n] = Statistics::mean(m_spharm[subj].depth, nDepth);
+				m_spharm[subj].maxDepth[n] = Statistics::max(m_spharm[subj].depth, nDepth);
+				m_spharm[subj].minDepth[n] = Statistics::min(m_spharm[subj].depth, nDepth);
+				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
+				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
+			}
 		}
 		cout << "done\n";
 	}
@@ -1064,13 +1103,13 @@ void GroupwiseRegistration::optimization(void)
 	{
 		nIter = 0;
 		int n = (deg + 1) * (deg + 1) * m_nSubj * 2 - prev;
-		min_newuoa(n, &m_coeff[prev], costFunc, 0.01f, 1e-6f, 50000);
+		min_newuoa(n, &m_coeff[prev], costFunc, 0.01f, 1e-6f, 30000);
 		prev = (deg + 1) * (deg + 1) * m_nSubj * 2;
 		deg = min(deg + step, m_spharm[0].degree);
 	}
 	
 	nIter = 0;
-	min_newuoa(m_csize * 2, m_coeff, costFunc, 0.001f, 1e-6f, 50000);
+	min_newuoa(m_csize * 2, m_coeff, costFunc, 0.001f, 1e-6f, 30000);
 }
 
 int GroupwiseRegistration::icosahedron(int degree)
