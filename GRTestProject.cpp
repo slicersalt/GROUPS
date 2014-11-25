@@ -9,7 +9,6 @@
 
 const char * VTKSUFFIX = ".vtk";
 const char * TXTSUFFIX = ".txt";
-const char * CORRPREFIX = "corr";
 const char * COEFFSUFFIX = ".coef";
 
 std::vector<std::string> openDirectory (std::string path)
@@ -50,12 +49,12 @@ std::vector<std::string> sortSurfFiles (std::string surfPath, std::string propPa
 	std::vector<std::string> sortedFileList;
 	std::string absPathFileName;
 	int substring;
-	std::vector<std::string>::iterator it;
+//	std::vector<std::string>::iterator it;
 	if (directoryFileList.size() > 0) {
 		bool doesHaveProp = false;
 		for (int listIndex = 0; listIndex < directoryFileList.size(); listIndex++) {
 			std::string currentString = directoryFileList[listIndex];
-			it = directoryFileList.begin() + listIndex;
+//			it = directoryFileList.begin() + listIndex;
 			absPathFileName = surfPath;
 			substring = currentString.find(ID);
 		  	if (substring != std::string::npos) {
@@ -78,12 +77,12 @@ std::vector<std::string> sortFiles (std::string path, std::string ID){
 	std::vector<std::string> sortedFileList;
 	std::string absPathFileName;
 	int substring;
-	std::vector<std::string>::iterator it;
+//	std::vector<std::string>::iterator it;
 	if (directoryFileList.size() > 0) {
 		bool doesHaveProp = false;
 		for (int listIndex = 0; listIndex < directoryFileList.size(); listIndex++) {
 			std::string currentString = directoryFileList[listIndex];
-			it = directoryFileList.begin() + listIndex;
+//			it = directoryFileList.begin() + listIndex;
 			absPathFileName = path;
 			substring = currentString.find(ID);
 		  	if (substring != std::string::npos) {
@@ -93,6 +92,18 @@ std::vector<std::string> sortFiles (std::string path, std::string ID){
 		}
 	}
 	return sortedFileList;
+}
+
+std::vector<std::string> setOutputFiles (std::vector<std::string> surfFiles, std::string outPath, std::string ext, std::string coeff){
+	std::vector<std::string> outFiles;
+	std::string surfFileName;
+	std::string outFileName;
+	for(int i = 0; i < surfFiles.size(); i++){
+		surfFileName = removePathAndSuffix(surfFiles[i]);
+		outFileName = outPath + "/" + surfFileName + ext + "." + coeff;
+		outFiles.push_back(outFileName);
+	}
+	return outFiles;
 }
 
 std::vector<std::string> sortFiles (std::vector<std::string> list, std::string ID){
@@ -164,8 +175,10 @@ int main(int argc , char* argv[])
  	std::cout<<"Sphere: " << sph << std::endl ;
 	std::cout<<"Degree: " << degree << std::endl ;
 	std::cout<<"Logfile: " << logfile << std::endl ;
-	
-	std::vector<std::string> surfaceFiles, coefficientFiles, allPropertyFiles, extSpecifiedPropFiles, mapFiles;
+ 	std::cout<<"Max Iterations: " << maxIter << std::endl ;
+ 	std::cout<<"addLoc: " << addLoc << std::endl ;
+ 	std::cout<<"Temp Surf: " << tempSurf << std::endl ;
+	std::vector<std::string> surfaceFiles, coefficientFiles, allPropertyFiles, extSpecifiedPropFiles, outputFiles;
 	
 //Handling of Surface directory**********************************************************
 
@@ -214,7 +227,7 @@ int main(int argc , char* argv[])
 		int extPropSize = extSpecifiedPropFiles.size();
 		int newExtPropSize = extSpecifiedPropFiles.size();
 		propFileList = putFilesInCharList(extSpecifiedPropFiles, newExtPropSize);
-		std::cout<<"Property Directory: kljasdhfl;kashdfl;kajsdf"<< propDir << std::endl ;
+		std::cout<<"Property Directory: "<< propDir << std::endl ;
 		for(int i = 0; i < newExtPropSize; i++){
 			std::cout<< "	" << propFileList[i] << ' ' << std::endl ;
 		}
@@ -231,17 +244,27 @@ int main(int argc , char* argv[])
 	if(!spharmDirString.empty()){
 		coefficientFiles = sortFiles(spharmDir, COEFFSUFFIX);
 		int coeffSize = coefficientFiles.size();
-		char **coeffFileList = putFilesInCharList(coefficientFiles, coeffSize);
+		coeffFileList = putFilesInCharList(coefficientFiles, coeffSize);
 		std::cout<<"Coefficient Directory: "<< spharmDir << std::endl ;
-		for(int i = 1; i < coeffSize; i++)
+		for(int i = 0; i < coeffSize; i++)
 			std::cout<< "	" << coeffFileList[i] << ' ' << std::endl ;
 	}
 	else
 		coeffFileList = NULL;
+
+//Output Directory*************************************************************************
+	
+	outputFiles = setOutputFiles(surfaceFiles, outputDir, TXTSUFFIX, "coeff");
+	int outSize = outputFiles.size();
+	char **outFileList = putFilesInCharList(outputFiles, outSize);
+	std::cout << "Output Directory: " << outputDir << std::endl ;
+	for(int i = 0; i < outSize; i++){
+		std::cout << "	" << outFileList[i] << ' ' << std::endl ;
+	}
 	
 	bool addLoc = true;
-	int maxIter = 30000;
-	char *tempSurf = "/home/hmali/Example/template/stx_noscale_995004_V12_t1w_label_pp_surf_tMeanSPHARM_procalign.vtk";
+//	int maxIter = 30000;
+//	char *tempSurf = "/home/hmali/Example/template/stx_noscale_995004_V12_t1w_label_pp_surf_tMeanSPHARM_procalign.vtk";
 	
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff

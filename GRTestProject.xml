@@ -18,17 +18,27 @@
 			<description>Path to directory containing properties of template model</description>
 		</directory>
 		<integer>
-			<longflag>deg</longflag>
+			<longflag>degree</longflag>
+			<flag>d</flag>
 			<name>degree</name>
 			<description></description>	
 			<label></label>
-			<default>9</default>
 		</integer>
 		<string>
 			<longflag>logFile</longflag>
 			<flag>l</flag>
 			<name>logfile</name>
 		</string>
+		<integer>
+			<longflag>maxIter</longflag>
+			<flag>r</flag>
+			<name>maxIter</name>
+		</integer>
+		<boolean>
+			<longflag>addLoc</longflag>
+			<flag>a</flag>
+			<name>addLoc</name>
+		</boolean>
 		<directory>
 			<longflag>surfDir</longflag>
 			<flag>i</flag>
@@ -59,6 +69,16 @@
 			<name>extDir</name>
 			<description>Path to list of desired extensions</description>
 		</directory>
+		<directory>
+			<longflag>outputDir</longflag>
+			<flag>o</flag>
+			<name>outputDir</name>
+		</directory>
+		<file>
+			<longflag>ts</longflag>
+			<flag>f</flag>
+			<name>tempSurf</name>
+		</file>
 		<string-vector>
 			<longflag>extensions</longflag>
 			<flag>x</flag>
