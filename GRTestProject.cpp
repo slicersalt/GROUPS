@@ -100,7 +100,7 @@ std::vector<std::string> setOutputFiles (std::vector<std::string> surfFiles, std
 	std::string outFileName;
 	for(int i = 0; i < surfFiles.size(); i++){
 		surfFileName = removePathAndSuffix(surfFiles[i]);
-		outFileName = outPath + "/" + surfFileName + coeff + "." + ext;
+		outFileName = outPath + "/" + surfFileName + coeff + ext;
 		outFiles.push_back(outFileName);
 	}
 	return outFiles;
@@ -171,8 +171,7 @@ int main(int argc , char* argv[])
 	
 	char *sph = (char *) sphere.c_str();
 	char *log = (char *) logfile.c_str();
-	if(logfile.empty)
-	  logfile = NULL;
+	if(logfile.empty()) log = NULL;
 
  	std::cout<<"Sphere: " << sph << std::endl ;
 	std::cout<<"Degree: " << degree << std::endl ;
@@ -256,7 +255,7 @@ int main(int argc , char* argv[])
 
 //Output Directory*************************************************************************
 	
-	outputFiles = setOutputFiles(surfaceFiles, outputDir, TXTSUFFIX, "coeff");
+	outputFiles = setOutputFiles(surfaceFiles, outputDir, TXTSUFFIX, ".coeff");
 	int outSize = outputFiles.size();
 	char **outFileList = putFilesInCharList(outputFiles, outSize);
 	std::cout << "Output Directory: " << outputDir << std::endl ;
@@ -269,6 +268,11 @@ int main(int argc , char* argv[])
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
 	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);
+	
+	for (int i = 0; i < outSize; i++)
+	{
+		r->saveLCoeff(outFileList[i], i);
+	}
 	
 	return 0 ;
 	
