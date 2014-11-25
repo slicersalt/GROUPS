@@ -177,7 +177,7 @@ int main(int argc , char* argv[])
 	std::cout<<"Logfile: " << logfile << std::endl ;
  	std::cout<<"Max Iterations: " << maxIter << std::endl ;
  	std::cout<<"addLoc: " << addLoc << std::endl ;
- 	std::cout<<"Temp Surf: " << tempSurf << std::endl ;
+ 	std::cout<<"Temp Surf: " << tempSurface << std::endl ;
 	std::vector<std::string> surfaceFiles, coefficientFiles, allPropertyFiles, extSpecifiedPropFiles, outputFiles;
 	
 //Handling of Surface directory**********************************************************
@@ -262,10 +262,8 @@ int main(int argc , char* argv[])
 		std::cout << "	" << outFileList[i] << ' ' << std::endl ;
 	}
 	
-	bool addLoc = true;
-//	int maxIter = 30000;
-//	char *tempSurf = "/home/hmali/Example/template/stx_noscale_995004_V12_t1w_label_pp_surf_tMeanSPHARM_procalign.vtk";
-	
+	char *tempSurf = new char[tempSurface.length() + 1];
+	std::strcpy(tempSurf, tempSurface.c_str());
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
 	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);

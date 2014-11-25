@@ -77,7 +77,7 @@
 		<file>
 			<longflag>ts</longflag>
 			<flag>f</flag>
-			<name>tempSurf</name>
+			<name>tempSurface</name>
 		</file>
 		<string-vector>
 			<longflag>extensions</longflag>
