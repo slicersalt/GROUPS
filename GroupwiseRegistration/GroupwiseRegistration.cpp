@@ -1115,13 +1115,13 @@ void GroupwiseRegistration::optimization(void)
 	{
 		nIter = 0;
 		int n = (deg + 1) * (deg + 1) * m_nSubj * 2 - prev;
-		min_newuoa(n, &m_coeff[prev], costFunc, 0.01f, 1e-6f, 30000);
+		min_newuoa(n, &m_coeff[prev], costFunc, 0.01f, 1e-6f, m_maxIter);
 		prev = (deg + 1) * (deg + 1) * m_nSubj * 2;
 		deg = min(deg + step, m_spharm[0].degree);
 	}
 	
 	nIter = 0;
-	min_newuoa(m_csize * 2, m_coeff, costFunc, 0.001f, 1e-6f, 30000);
+	min_newuoa(m_csize * 2, m_coeff, costFunc, 0.001f, 1e-6f, m_maxIter);
 }
 
 int GroupwiseRegistration::icosahedron(int degree)
