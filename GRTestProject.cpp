@@ -171,6 +171,8 @@ int main(int argc , char* argv[])
 	
 	char *sph = (char *) sphere.c_str();
 	char *log = (char *) logfile.c_str();
+	if(logfile.empty)
+	  logfile = NULL;
 
  	std::cout<<"Sphere: " << sph << std::endl ;
 	std::cout<<"Degree: " << degree << std::endl ;
