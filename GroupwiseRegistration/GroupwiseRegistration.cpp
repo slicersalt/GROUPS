@@ -135,6 +135,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 			m_csize += (degree + 1) * (degree + 1);
 		}
 	}
+	
 	m_coeff = new float[m_csize * 2];
 	memset(m_coeff, 0, sizeof(float) * m_csize * 2);
 
@@ -178,14 +179,9 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 			m_spharm[subj].coeff = new float*[n * 2];
 			for (int i = 0; i < n; i++)
 			{
+				//cout << "init: " << m_coeff[nSubj * 2 * i + subj * 2] << " " << m_coeff[nSubj * 2 * i + subj * 2 + 1] << endl;
 				m_spharm[subj].coeff[i] = &m_coeff[nSubj * 2 * i + subj * 2];
 				m_spharm[subj].coeff[n + i] = &m_coeff[nSubj * 2 * i + subj * 2 + 1];
-			}
-
-			for (int i = 0; i < (m_spharm[subj].degree + 1) * (m_spharm[subj].degree + 1); i++)
-			{
-				*m_spharm[subj].coeff[i] = 0;
-				*m_spharm[subj].coeff[n + i] = 0;
 			}
 		}
 
@@ -596,7 +592,9 @@ void GroupwiseRegistration::updateDeformation(int subject)
 		v->setVertex(V.fv());
 
 		// debug
-		/*float *v0 = m_spharm[subject].vertex[i]->v;
+		/*if (*m_spharm[subject].coeff[0] !=0)
+			cout << " " <<*m_spharm[subject].coeff[0] << endl;
+		float *v0 = m_spharm[subject].vertex[i]->v;
 		for (int j = 0; j < 3; j++)
 			cout << v0[j] << " ";
 		cout << " -> ";
@@ -1050,9 +1048,11 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 		updateDeformation(i);
 		//m_spharm[i].tree->update();
 	}
+	
 	//float cost = landmarkEntropy();
 	//float cost = landmarkEntropyMedian();
 	float cost = landmarkEntropyMulti();
+
 	if (nIter % statusStep == 0)
 	{
 		cout << "Cost: " << cost << endl;
@@ -1085,12 +1085,12 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 			fflush(m_clfp);
 
 			saveLDeformation("group.txt");
-			for (int i = 0; i < 42; i++)
+			/*for (int i = 0; i < 42; i++)
 			{
 				char fn[1024];
 				sprintf(fn, "%s", &m_coeff_fn[i][29]);
 				saveLCoeff(fn, i);
-			}
+			}*/
 		}
 		//fflush(stdout);
 	}
@@ -1104,7 +1104,7 @@ void GroupwiseRegistration::optimization(void)
 	cost_function costFunc(this);
 	//cout << "var: " << depthVariance() << endl;
 	int prev = 0;
-	int deg = 2;
+	int deg = m_spharm[0].degree;  // for the incremental optimization
 	int step = 1;
 	
 	int n1 = (deg + 1) * (deg + 1) * m_nSubj * 2;
@@ -1115,13 +1115,13 @@ void GroupwiseRegistration::optimization(void)
 	{
 		nIter = 0;
 		int n = (deg + 1) * (deg + 1) * m_nSubj * 2 - prev;
-		min_newuoa(n, &m_coeff[prev], costFunc, 0.01f, 1e-6f, m_maxIter);
+		min_newuoa(n, &m_coeff[prev], costFunc, 1.0f, 1e-5f, m_maxIter);
 		prev = (deg + 1) * (deg + 1) * m_nSubj * 2;
 		deg = min(deg + step, m_spharm[0].degree);
 	}
 	
 	nIter = 0;
-	min_newuoa(m_csize * 2, m_coeff, costFunc, 0.001f, 1e-6f, m_maxIter);
+	min_newuoa(m_csize * 2, m_coeff, costFunc, 1.0f, 1e-6f, m_maxIter);
 }
 
 int GroupwiseRegistration::icosahedron(int degree)
