@@ -100,7 +100,7 @@ std::vector<std::string> setOutputFiles (std::vector<std::string> surfFiles, std
 	std::string outFileName;
 	for(int i = 0; i < surfFiles.size(); i++){
 		surfFileName = removePathAndSuffix(surfFiles[i]);
-		outFileName = outPath + "/" + surfFileName + ext + "." + coeff;
+		outFileName = outPath + "/" + surfFileName + coeff + "." + ext;
 		outFiles.push_back(outFileName);
 	}
 	return outFiles;
