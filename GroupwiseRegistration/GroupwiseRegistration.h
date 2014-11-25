@@ -15,14 +15,14 @@ class GroupwiseRegistration
 public:
 	GroupwiseRegistration(void);
 	GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, int nSubj, int deg = 5, char *coeffLog = NULL, int nProperties = 1, int maxIter = 30000);
-	GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg = 5, int nProperties = 1, bool propLoc = false, char *coeffLog = NULL, char **coeff = NULL, int maxIter = 30000);
+	GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg = 5, int nProperties = 1, bool propLoc = false, char *tmpSurf = NULL, char **surf = NULL, char *coeffLog = NULL, char **coeff = NULL, int maxIter = 30000);
 	~GroupwiseRegistration(void);
 	void saveLDeformation(char *filename);
 	void saveLCoeff(char *filename, int id);
 	float cost(float *coeff, int statusStep = 10);
 
 private:
-	void init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, int nSubj, int deg = 5, int nProperties = 1, bool propLoc = false);
+	void init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, int nSubj, int deg = 5, int nProperties = 1, bool propLoc = false, char *tmpSurf = NULL, char **surf = NULL);
 	void init(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, int nSubj, int deg = 5, int nProperties = 1);
 	void reconsCoord(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole);
 	void updateDeformation(int subject);
@@ -56,6 +56,7 @@ private:
 		vector<sphereVertex *> vertex;
 		AABB *tree;
 		Mesh *sphere;
+		Mesh *surf;
 		float *depth;
 		int *depth_cache;
 		float *meanDepth;

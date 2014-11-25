@@ -8,12 +8,12 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 {
 }
 
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, bool propLoc, char *coeffLog, char **coeff, int maxIter)
+GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, bool propLoc, char *tmpSurf, char **surf, char *coeffLog, char **coeff, int maxIter)
 {
 	m_maxIter = maxIter;
 	m_nSubj = nSubj;
 	m_nProperties = nProperties;
-	init_multi(sphere, tmpDepth, subjDepth, coeff, nSubj, deg, nProperties, propLoc);
+	init_multi(sphere, tmpDepth, subjDepth, coeff, nSubj, deg, nProperties, propLoc, tmpSurf, surf);
 	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
 	else m_clfp = NULL;
 	optimization();
@@ -42,7 +42,7 @@ GroupwiseRegistration::~GroupwiseRegistration(void)
 	delete [] m_updated;
 }
 
-void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, int nSubj, int deg, int nProperties, bool propLoc)
+void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, int nSubj, int deg, int nProperties, bool propLoc, char *tmpSurf, char **surf)
 {
 	// unit sphere information
 	cout << "Loading unit sphere information..\n";
@@ -54,12 +54,18 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 	m_entropy = new entropy[m_sphere->nFace()];
 
 	int nDepth = m_sphere->nVertex();
-	if (propLoc) nProperties += 3;
+	Mesh *tSurf;
+	if (propLoc)
+	{
+		nProperties += 3;
+		tSurf = new Mesh();
+		tSurf->openFile(tmpSurf);
+	}
 	m_depth = new float[nDepth * nProperties];
 	m_meanDepth = new float[nProperties];
 	m_maxDepth = new float[nProperties];
 	m_minDepth = new float[nProperties];
-
+	
 	int count = 0;
 	for (int n = 0; n < nProperties; n++)
 	{
@@ -67,7 +73,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		{
 			for (int i = 0; i < nDepth; i++)
 			{
-				Vertex *v = (Vertex *)m_sphere->vertex(i);
+				Vertex *v = (Vertex *)tSurf->vertex(i);
 				const float *v0 = v->fv();
 				m_depth[nDepth * n + i] = v0[count];
 			}
@@ -188,6 +194,12 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		// sphere information
 		m_spharm[subj].sphere = new Mesh();
 		m_spharm[subj].sphere->openFile(sphere);
+		
+		if (propLoc)
+		{
+			m_spharm[subj].surf = new Mesh();
+			m_spharm[subj].surf->openFile(surf[subj]);
+		}
 
 		// vertices on the sphere
 		for (int i = 0; i < m_spharm[subj].sphere->nVertex(); i++)
@@ -227,7 +239,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 			{
 				for (int i = 0; i < nDepth; i++)
 				{
-					Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);
+					Vertex *v = (Vertex *)m_spharm[subj].surf->vertex(i);
 					const float *v0 = v->fv();
 					m_spharm[subj].depth[nDepth * n + i] = v0[count];
 				}

@@ -241,10 +241,11 @@ int main(int argc , char* argv[])
 	
 	bool addLoc = true;
 	int maxIter = 30000;
+	char *tempSurf = "/home/hmali/Example/template/stx_noscale_995004_V12_t1w_label_pp_surf_tMeanSPHARM_procalign.vtk";
 	
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
-	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, log, coeffFileList, maxIter);
+	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);
 	
 	return 0 ;
 	
