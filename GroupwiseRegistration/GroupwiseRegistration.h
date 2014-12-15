@@ -34,6 +34,7 @@ private:
 	float landmarkEntropyMedian(void);
 	float depthVariance(void);
 	float depthInterpolation(float *refMap, int index, float *coeff, Mesh *mesh);
+	float edgeCost(void);
 
 private:
 	struct point

@@ -47,15 +47,20 @@ public:
 	void setVertex(const float *v);
 	void setColor(const float *v);
 	void setColor(const float r, const float g, const float b);
+	void setList(const int *list, const int n);
 	float operator[] (const int id);
-	const int id(void);
-	const float *fv(void);
-	const float *color(void);
+	const int *list(void) const;
+	const int id(void) const;
+	const int nNeighbor(void) const;
+	const float *fv(void) const;
+	const float *color(void) const;
 
 private:
 	float m_vertex[3];
 	float m_color[3];
 	int m_id;
+	int *m_list;
+	int m_nNeighbor;
 };
 
 class Normal
@@ -126,6 +131,9 @@ public:
 	const Normal **normal(void);
 	const Normal *normal(const int index);
 
+private:
+	void connectivity(void);
+	
 private:
 	int m_nVertex;
 	int m_nFace;

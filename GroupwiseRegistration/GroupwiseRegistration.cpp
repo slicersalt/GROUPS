@@ -605,6 +605,31 @@ void GroupwiseRegistration::updateDeformation(int subject)
 	m_updated[subject] = false;
 }
 
+float GroupwiseRegistration::edgeCost(void)
+{
+	float var = 0;
+	float length[100];
+	for (int i = 0; i < m_nSubj; i++)
+	{
+		int nVertex = m_spharm[i].sphere->nVertex();
+		for (int j = 0; j < nVertex; j++)
+		{
+			int n = m_spharm[i].sphere->vertex(j)->nNeighbor();
+			const float *fv = m_spharm[i].sphere->vertex(j)->fv();
+			const int *list = m_spharm[i].sphere->vertex(j)->list();
+			for (int k = 0; k < n; k++)
+			{
+				const float *fv2 = m_spharm[i].sphere->vertex(list[k])->fv();
+				MathVector v = MathVector(fv2) - MathVector(fv);
+				length[k] = v.norm();
+			}
+			var += Statistics::mean(length, n) / nVertex;
+		}
+	}
+	
+	return var / m_nSubj;
+}
+
 float GroupwiseRegistration::landmarkEntropyMulti(void)
 {
 	int d = m_depthvar.size();
@@ -1052,6 +1077,8 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 	//float cost = landmarkEntropy();
 	//float cost = landmarkEntropyMedian();
 	float cost = landmarkEntropyMulti();
+	
+	cout << edgeCost() << endl;
 
 	if (nIter % statusStep == 0)
 	{

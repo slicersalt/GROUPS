@@ -178,6 +178,8 @@ Vertex::Vertex(void)
 	m_color[1] = 1.0f;
 	m_color[2] = 1.0f;
 	m_id = 0;
+	m_nNeighbor = 0;
+	m_list = NULL;
 }
 
 Vertex::Vertex(const int id)
@@ -186,13 +188,16 @@ Vertex::Vertex(const int id)
 	m_color[1] = 1.0f;
 	m_color[2] = 1.0f;
 	m_id = id;
+	m_nNeighbor = 0;
+	m_list = NULL;
 }
 
 Vertex::~Vertex(void)
 {
+	//delete [] m_list;
 }
 
-const float * Vertex::fv(void)
+const float * Vertex::fv(void) const
 {
 	return m_vertex;
 }
@@ -267,6 +272,14 @@ void Vertex::setVertex(const float *v)
 	m_vertex[0] = v[0]; m_vertex[1] = v[1]; m_vertex[2] = v[2];
 }
 
+void Vertex::setList(const int *list, const int n)
+{
+	m_nNeighbor = n;
+	if (m_list != NULL) delete [] m_list;
+	m_list = new int[n];
+	memcpy(m_list, list, sizeof(int) * n);
+}
+
 void Vertex::setColor(const float *v)
 {
 	m_color[0] = v[0]; m_color[1] = v[1]; m_color[2] = v[2];
@@ -277,14 +290,24 @@ void Vertex::setColor(const float r, const float g, const float b)
 	m_color[0] = r; m_color[1] = g; m_color[2] = b;
 }
 
-const float * Vertex::color(void)
+const float * Vertex::color(void) const
 {
 	return m_color;
 }
 
-const int Vertex::id(void)
+const int Vertex::id(void) const
 {
 	return m_id;
+}
+
+const int * Vertex::list(void) const
+{
+	return m_list;
+}
+
+const int Vertex::nNeighbor(void) const
+{
+	return m_nNeighbor;
 }
 
 Face::Face(void)
@@ -574,6 +597,8 @@ void Mesh::openFile(const char *filename)
 	for (int i = 0; i < m_nNormal; i++) m_normal[i]->normalize();
 
 	delete mesh;
+
+	connectivity();
 }
 
 void Mesh::openFile(const char *filename, const char *color)
@@ -697,4 +722,76 @@ void Mesh::saveFile(const char *filename, const char *format, bool normal)
 		cout << "Not supoorted format!" << endl;
 		return;
 	}
+}
+
+void Mesh::connectivity(void)
+{
+	int *nNeighbor = new int[m_nVertex];
+	memset(nNeighbor, 0, sizeof(int) * m_nVertex);
+	
+	for (int i = 0; i < m_nFace; i++) 
+	{
+		for (int j = 0; j < 3; j++) 
+		{
+			int idx = m_face[i]->vertex(j)->id();
+			nNeighbor[idx]++;
+		}
+	}
+
+	struct link
+	{
+		int idx;
+		int next;
+	};
+	link **neighbor = new link*[m_nVertex];
+	for (int i = 0; i < m_nVertex; i++)
+	{
+		//cout << i << " " << nNeighbor[i] << endl;
+		neighbor[i] = new link[nNeighbor[i]];
+	}
+
+	memset(nNeighbor, 0, sizeof(int) * m_nVertex);
+	for (int i = 0; i < m_nFace; i++) 
+	{
+		int idx0 = m_face[i]->vertex(0)->id();
+		int idx1 = m_face[i]->vertex(1)->id();
+		int idx2 = m_face[i]->vertex(2)->id();
+
+		neighbor[idx0][nNeighbor[idx0]].idx = idx1;
+		neighbor[idx0][nNeighbor[idx0]].next = idx2;
+		nNeighbor[idx0]++;
+
+		neighbor[idx1][nNeighbor[idx1]].idx = idx2;
+		neighbor[idx1][nNeighbor[idx1]].next = idx0;
+		nNeighbor[idx1]++;
+
+		neighbor[idx2][nNeighbor[idx2]].idx = idx0;
+		neighbor[idx2][nNeighbor[idx2]].next = idx1;
+		nNeighbor[idx2]++;
+	}
+
+	for (int i = 0; i < m_nVertex; i++)
+	{
+		int *list = new int[nNeighbor[i]];
+		int next = 0;
+		for (int j = 0; j < nNeighbor[i]; j++)
+		{
+			list[j] = neighbor[i][next].idx;
+			for (int k = 0; k < nNeighbor[i]; k++)
+			{
+				if (neighbor[i][k].idx == neighbor[i][next].next)
+				{
+					next = k;
+					break;
+				}
+			}
+		}
+		m_vertex[i]->setList(list, nNeighbor[i]);
+		delete [] list;
+	}
+
+	// free
+	delete [] nNeighbor;
+	for (int i = 0; i < m_nVertex; i++) delete [] neighbor[i];
+	delete [] neighbor;
 }
