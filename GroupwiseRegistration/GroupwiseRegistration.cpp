@@ -12,7 +12,6 @@ GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char
 {
 	m_maxIter = maxIter;
 	m_nSubj = nSubj;
-	m_nProperties = nProperties;
 	init_multi(sphere, tmpDepth, subjDepth, coeff, nSubj, deg, nProperties, propLoc, tmpSurf, surf);
 	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
 	else m_clfp = NULL;
@@ -24,7 +23,6 @@ GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char
 {
 	m_maxIter = maxIter;
 	m_nSubj = nSubj;
-	m_nProperties = nProperties;
 	init(sphere, tmpDepth, subjDepth, coeff, correspondence, nSubj, deg, nProperties);
 	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
 	else m_clfp = NULL;
@@ -66,6 +64,8 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 	m_maxDepth = new float[nProperties];
 	m_minDepth = new float[nProperties];
 	
+	m_nProperties = nProperties;
+	
 	int count = 0;
 	for (int n = 0; n < nProperties; n++)
 	{
@@ -77,9 +77,9 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 				const float *v0 = v->fv();
 				m_depth[nDepth * n + i] = v0[count];
 			}
-			m_meanDepth[n] = Statistics::mean(m_depth, nDepth);
-			m_maxDepth[n] = Statistics::max(m_depth, nDepth);
-			m_minDepth[n] = Statistics::min(m_depth, nDepth);
+			m_meanDepth[n] = Statistics::mean(&m_depth[nDepth * n], nDepth);
+			m_maxDepth[n] = Statistics::max(&m_depth[nDepth * n], nDepth);
+			m_minDepth[n] = Statistics::min(&m_depth[nDepth * n], nDepth);
 			count++;
 		}
 		else
@@ -95,11 +95,14 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 				//if (m_depth[i] > 0) m_depth[i] = 0;
 			}
 			fclose(fp);
-			m_meanDepth[n] = Statistics::mean(m_depth, nDepth);
-			m_maxDepth[n] = Statistics::max(m_depth, nDepth) - m_meanDepth[n];
-			m_minDepth[n] = Statistics::min(m_depth, nDepth) - m_meanDepth[n];
+			m_meanDepth[n] = Statistics::mean(&m_depth[nDepth * n], nDepth);
+			m_maxDepth[n] = Statistics::max(&m_depth[nDepth * n], nDepth) - m_meanDepth[n];
+			m_minDepth[n] = Statistics::min(&m_depth[nDepth * n], nDepth) - m_meanDepth[n];
 		}
 	}
+	/*cout << "Mean: " << m_meanDepth[0] << " " << m_meanDepth[1] << " " << m_meanDepth[2] << endl;
+	cout << "Min: " << m_minDepth[0] << " " << m_minDepth[1] << " " << m_minDepth[2] << endl;
+	cout << "Max: " << m_maxDepth[0] << " " << m_maxDepth[1] << " " << m_maxDepth[2] << endl;*/
 
 	//cout << "Depth Range: [" << m_minDepth << ", " << m_maxDepth << "]\n";
 
@@ -141,7 +144,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 
 	for (int subj = 0; subj < nSubj; subj++)
 	{
-		cout << "suject " << subj << endl;
+		cout << "subject " << subj << endl;
 		
 		// spherical harmonics information
 		m_spharm[subj] = spharm();
@@ -240,9 +243,9 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 					m_spharm[subj].depth[nDepth * n + i] = v0[count];
 				}
 				count++;
-				m_spharm[subj].meanDepth[n] = Statistics::mean(m_spharm[subj].depth, nDepth);
-				m_spharm[subj].maxDepth[n] = Statistics::max(m_spharm[subj].depth, nDepth);
-				m_spharm[subj].minDepth[n] = Statistics::min(m_spharm[subj].depth, nDepth);
+				m_spharm[subj].meanDepth[n] = Statistics::mean(&m_spharm[subj].depth[nDepth * n], nDepth);
+				m_spharm[subj].maxDepth[n] = Statistics::max(&m_spharm[subj].depth[nDepth * n], nDepth);
+				m_spharm[subj].minDepth[n] = Statistics::min(&m_spharm[subj].depth[nDepth * n], nDepth);
 				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
 				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
 			}
@@ -261,13 +264,16 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 					//if (m_spharm[subj].depth[n * nProperties + i] > 0) m_spharm[subj].depth[n * nProperties + i] = 0;
 				}
 				fclose(fp);
-				m_spharm[subj].meanDepth[n] = Statistics::mean(m_spharm[subj].depth, nDepth);
-				m_spharm[subj].maxDepth[n] = Statistics::max(m_spharm[subj].depth, nDepth);
-				m_spharm[subj].minDepth[n] = Statistics::min(m_spharm[subj].depth, nDepth);
+				m_spharm[subj].meanDepth[n] = Statistics::mean(&m_spharm[subj].depth[nDepth * n], nDepth);
+				m_spharm[subj].maxDepth[n] = Statistics::max(&m_spharm[subj].depth[nDepth * n], nDepth);
+				m_spharm[subj].minDepth[n] = Statistics::min(&m_spharm[subj].depth[nDepth * n], nDepth);
 				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
 				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
 			}
 		}
+		/*cout << "Mean: " << m_spharm[subj].meanDepth[0] << " " << m_spharm[subj].meanDepth[1] << " " << m_spharm[subj].meanDepth[2] << endl;
+		cout << "Min: " << m_spharm[subj].minDepth[0] << " " << m_spharm[subj].minDepth[1] << " " << m_spharm[subj].minDepth[2] << endl;
+		cout << "Max: " << m_spharm[subj].maxDepth[0] << " " << m_spharm[subj].maxDepth[1] << " " << m_spharm[subj].maxDepth[2] << endl;*/
 		cout << "done\n";
 	}
 
@@ -370,7 +376,7 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 
 	for (int subj = 0; subj < nSubj; subj++)
 	{
-		cout << "suject " << subj << endl;
+		cout << "subject " << subj << endl;
 		// spherical harmonics information
 		m_spharm[subj] = spharm();
 		FILE *fp = fopen(coeff[subj],"r");
@@ -523,7 +529,7 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 		{
 			float coeffs[3];
 			int id = m_tree->closestFace(m_depthvar[i], coeffs);
-			//m_pointList[nSubj * (landmark + depth) + landmm_nPropertiesark + i] = depthInterpolation(m_depth, id, coeffs, m_sphere);
+			//m_pointList[nSubj * (landmark + depth) + landmark + i] = depthInterpolation(m_depth, id, coeffs, m_sphere);
 			m_pointList[nSubj * (landmark + depth) + landmark + i] = (depthInterpolation(&m_depth[depth * n], id, coeffs, m_sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
 		}
 	}
@@ -623,7 +629,7 @@ float GroupwiseRegistration::edgeCost(void)
 				MathVector v = MathVector(fv2) - MathVector(fv);
 				length[k] = v.norm();
 			}
-			var += Statistics::mean(length, n) / nVertex;
+			var += Statistics::var(length, n) / nVertex;
 		}
 	}
 	
@@ -1076,13 +1082,13 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 	
 	//float cost = landmarkEntropy();
 	//float cost = landmarkEntropyMedian();
-	float cost = landmarkEntropyMulti();
-	
-	cout << edgeCost() << endl;
-
+	float lcost = landmarkEntropyMulti();
+	float ecost = edgeCost();
+	float cost = lcost + ecost;
 	if (nIter % statusStep == 0)
 	{
-		cout << "Cost: " << cost << endl;
+		cout << "Cost: " << cost << " = " << lcost << " + " << ecost << endl;
+		//cout << edgeCost() << endl;
 		//printf("%0#8d\t%f\n", nIter, cost);
 		if (m_clfp != NULL)
 		{

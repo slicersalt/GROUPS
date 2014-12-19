@@ -72,7 +72,7 @@ public:
 	~Normal(void);
 	void setNormal(const float *v);
 	void normalize(void);
-	const float *fv(void);
+	const float *fv(void) const;
 	const Normal &operator +=(const Normal &n);
 	const Normal &operator *=(const float s);
 	float operator[] (const int id);
@@ -92,11 +92,11 @@ public:
 	void setNormal(const Normal **v);
 	void setList(const int *list);
 	const int id(void);
-	const int *list(void);
-	const int list(const int index);
-	const Vertex *vertex(const int index);
-	const Normal *normal(const int index);
-	const Normal faceNormal(void);
+	const int *list(void) const;
+	const int list(const int index) const;
+	const Vertex *vertex(const int index) const;
+	const Normal *normal(const int index) const;
+	const Normal faceNormal(void) const;
 	int operator[] (const int id);
 
 private:
@@ -124,12 +124,12 @@ public:
 	void rotation(const float *axis, float theta, float *v);
 	const int nFace(void);
 	const int nVertex(void);
-	const Face **face(void);
-	const Face *face(const int index);
-	const Vertex **vertex(void);
-	const Vertex *vertex(const int index);
-	const Normal **normal(void);
-	const Normal *normal(const int index);
+	const Face **face(void) const;
+	const Face *face(const int index) const;
+	const Vertex **vertex(void) const;
+	const Vertex *vertex(const int index) const;
+	const Normal **normal(void) const;
+	const Normal *normal(const int index) const;
 
 private:
 	void connectivity(void);

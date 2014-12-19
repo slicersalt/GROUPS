@@ -227,7 +227,7 @@ Normal::~Normal(void)
 {
 }
 
-const float * Normal::fv(void)
+const float * Normal::fv(void) const
 {
 	return m_normal;
 }
@@ -329,7 +329,7 @@ void Face::setVertex(const Vertex **v)
 	m_vertex[0] = (Vertex *)v[0]; m_vertex[1] = (Vertex *)v[1]; m_vertex[2] = (Vertex *)v[2];
 }
 
-const Vertex * Face::vertex(const int index)
+const Vertex * Face::vertex(const int index) const
 {
 	return m_vertex[index];
 }
@@ -346,12 +346,12 @@ void Face::setList(const int *list)
 	m_list[2] = list[2];
 }
 
-const int *Face::list(void)
+const int *Face::list(void) const
 {
 	return (const int *)m_list;
 }
 
-const int Face::list(const int index)
+const int Face::list(const int index) const
 {
 	return (const int)m_list[index];
 }
@@ -361,12 +361,12 @@ int Face::operator[] (const int id)
 	return m_list[id];
 }
 
-const Normal * Face::normal(const int index)
+const Normal * Face::normal(const int index) const
 {
 	return m_normal[index];
 }
 
-const Normal Face::faceNormal(void)
+const Normal Face::faceNormal(void) const
 {
 	Vector v1(m_vertex[1]->fv(), m_vertex[0]->fv());
 	Vector v2(m_vertex[2]->fv(), m_vertex[1]->fv());
@@ -408,32 +408,32 @@ void Mesh::setColor(const float r, const float g, const float b)
 	for (int i = 0; i < m_nVertex; i++) m_vertex[i]->setColor(r, g, b);
 }
 
-const Vertex ** Mesh::vertex(void)
+const Vertex ** Mesh::vertex(void) const
 {
 	return (const Vertex **)m_vertex;
 }
 
-const Vertex * Mesh::vertex(int index)
+const Vertex * Mesh::vertex(int index) const
 {
 	return (const Vertex *)m_vertex[index];
 }
 
-const Normal ** Mesh::normal(void)
+const Normal ** Mesh::normal(void) const
 {
 	return (const Normal **)m_normal;
 }
 
-const Normal * Mesh::normal(int index)
+const Normal * Mesh::normal(int index) const
 {
 	return (const Normal *)m_normal[index];
 }
 
-const Face ** Mesh::face(void)
+const Face ** Mesh::face(void) const
 {
 	return (const Face **)m_face;
 }
 
-const Face * Mesh::face(int index)
+const Face * Mesh::face(int index) const
 {
 	return (const Face *)m_face[index];
 }
@@ -559,12 +559,20 @@ void Mesh::openFile(const char *filename)
 		const float *v = mesh->vertex(i);
 		m_vertex[i]->setVertex(v);
 	}
-	if (mesh->nNormal() > 0)
+	if (mesh->hasNormal())
 	{
 		for (int i = 0; i < m_nNormal; i++) 
 		{
 			const float *v = mesh->normal(i);
 			m_normal[i]->setNormal(v);
+		}
+	}
+	if (mesh->hasColor())
+	{
+		for (int i = 0; i < m_nVertex; i++)
+		{
+			const float *v = mesh->color(i);
+			m_vertex[i]->setColor(v);
 		}
 	}
 	for (int i = 0; i < m_nFace; i++) 

@@ -90,7 +90,7 @@ private:
 	vector<int> m_entropyList;
 	entropy *m_entropy;
 	char **m_coeff_fn;
-
+	
 	// work space
 	float *m_cov_depth;
 	float *m_pointList;

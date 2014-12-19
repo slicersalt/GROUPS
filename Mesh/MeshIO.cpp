@@ -7,6 +7,8 @@ MeshIO::MeshIO(void)
 	m_nFace = 0;
 	m_nNormal = 0;
 	m_hasNormal = false;
+	m_hasColor = false;
+	m_color = NULL;
 }
 
 MeshIO::~MeshIO(void)
@@ -41,6 +43,11 @@ const float *MeshIO::normal(int id)
 	return (const float *)&m_normal[id * 3];
 }
 
+const float *MeshIO::color(int id)
+{
+	return (const float *)&m_color[id * 3];
+}
+
 const int *MeshIO::face(int id)
 {
 	if (m_hasNormal) return (const int *)&m_face[id * 6];
@@ -57,10 +64,16 @@ bool MeshIO::hasNormal(void)
 	return m_hasNormal;
 }
 
+bool MeshIO::hasColor(void)
+{
+	return m_hasColor;
+}
+
 void MeshIO::initArray(void)
 {
 	m_vertex = new float[m_nVertex * 3];
 	m_normal = new float[m_nNormal * 3];
 	if (m_hasNormal) m_face = new int[m_nFace * 6];
 	else m_face = new int[m_nFace * 3];
+	if (m_hasColor) m_color = new float[m_nVertex * 3];
 }

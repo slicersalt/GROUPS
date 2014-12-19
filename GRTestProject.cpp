@@ -201,7 +201,11 @@ int main(int argc , char* argv[])
 			std::cout<< "	" << surfFileList[i] << ' ' << std::endl ;
 		}
 		else
+		{
+			surfSize = 0;
+			surfFileList = NULL;
 			std::cout << "Warning: No input for '-p'." << std::endl ;
+		}
 	}
 	else
 		surfFileList = NULL;
@@ -268,6 +272,7 @@ int main(int argc , char* argv[])
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
 	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);
+	//GroupwiseRegistration *r = new GroupwiseRegistration(sph, NULL, NULL, surfSize, degree, 0, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);	// location only
 	
 	for (int i = 0; i < outSize; i++)
 	{

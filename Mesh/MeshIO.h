@@ -15,8 +15,10 @@ public:
 	int nNormal(void);
 	int nFace(void);
 	bool hasNormal(void);
+	bool hasColor(void);
 	const float *vertex(int id);
 	const float *normal(int id);
+	const float *color(int id);
 	const int *face(int id);
 
 protected:
@@ -27,8 +29,10 @@ protected:
 	int m_nFace;
 	int m_nNormal;
 	float *m_vertex;
+	float *m_color;
 	float *m_normal;
 	int *m_face;
 	bool m_hasNormal;
+	bool m_hasColor;
 };
 
