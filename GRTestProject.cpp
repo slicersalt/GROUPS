@@ -271,7 +271,7 @@ int main(int argc , char* argv[])
 	std::strcpy(tempSurf, tempSurface.c_str());
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
-	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);
+	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter, outFileList);
 	//GroupwiseRegistration *r = new GroupwiseRegistration(sph, NULL, NULL, surfSize, degree, 0, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);	// location only
 	
 	for (int i = 0; i < outSize; i++)

@@ -8,15 +8,17 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 {
 }
 
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, bool propLoc, char *tmpSurf, char **surf, char *coeffLog, char **coeff, int maxIter)
+GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, bool propLoc, char *tmpSurf, char **surf, char *coeffLog, char **coeff, int maxIter, char **output)
 {
 	m_maxIter = maxIter;
 	m_nSubj = nSubj;
+	if (output != NULL) m_output = output;
 	init_multi(sphere, tmpDepth, subjDepth, coeff, nSubj, deg, nProperties, propLoc, tmpSurf, surf);
 	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
 	else m_clfp = NULL;
 	optimization();
 	if (coeffLog != NULL) fclose(m_clfp);
+	cout << "All done!\n";
 }
 
 GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, int nSubj, int deg, char *coeffLog, int nProperties, int maxIter)
@@ -289,6 +291,18 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 	int depth = m_depthvar.size();
 	m_cov_weight = new float[depth * nProperties];
 	float w = 1.0f;
+	
+	int evarsize = 0;
+	for (int i = 0; i < nSubj; i++)
+		evarsize += m_spharm[i].sphere->nVertex();
+	m_edgeVar = new float[evarsize];
+	m_nEdges = 0;
+	for (int i = 0; i < nSubj; i++)
+	{
+		m_spharm[i].edge_var = &m_edgeVar[m_nEdges];
+		m_nEdges += m_spharm[i].sphere->nVertex();
+	}
+	
 	for (int n = 0; n < nProperties; n++)
 		for (int i = 0; i < depth; i++)
 			m_cov_weight[n * depth + i] = 1.0f;
@@ -301,12 +315,12 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		for (int i = 0; i < depth; i++)
 		{
 			float coeffs[3];
-			int id = m_tree->closestFace(m_depthvar[i], coeffs);
+			int id = m_tree->closestFace(m_depthvar[i], coeffs, 0.0001);
 			m_pointList[nSubj * depth * nProperties + n * depth + i] = (depthInterpolation(&m_depth[nDepth * n], id, coeffs, m_sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
 		}
 	}
 	
-	// dpeth cache
+	// depth cache
 	for (int subj = 0; subj < nSubj; subj++)
 	{
 		m_spharm[subj].depth_cache = new int[depth * nProperties];
@@ -611,31 +625,6 @@ void GroupwiseRegistration::updateDeformation(int subject)
 	m_updated[subject] = false;
 }
 
-float GroupwiseRegistration::edgeCost(void)
-{
-	float var = 0;
-	float length[100];
-	for (int i = 0; i < m_nSubj; i++)
-	{
-		int nVertex = m_spharm[i].sphere->nVertex();
-		for (int j = 0; j < nVertex; j++)
-		{
-			int n = m_spharm[i].sphere->vertex(j)->nNeighbor();
-			const float *fv = m_spharm[i].sphere->vertex(j)->fv();
-			const int *list = m_spharm[i].sphere->vertex(j)->list();
-			for (int k = 0; k < n; k++)
-			{
-				const float *fv2 = m_spharm[i].sphere->vertex(list[k])->fv();
-				MathVector v = MathVector(fv2) - MathVector(fv);
-				length[k] = v.norm();
-			}
-			var += Statistics::var(length, n) / nVertex;
-		}
-	}
-	
-	return var / m_nSubj;
-}
-
 float GroupwiseRegistration::landmarkEntropyMulti(void)
 {
 	int d = m_depthvar.size();
@@ -687,7 +676,7 @@ float GroupwiseRegistration::landmarkEntropyMulti(void)
 						m_updated[j] = true;
 						m_spharm[j].tree->update();
 					}
-					fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff);
+					fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff, 0.0001);
 				}
 				//p[j * (n * 3 + d * 1) + n * 3 + i] = depthInterpolation(m_spharm[j].depth, fid, coeff, m_spharm[j].sphere);
 				p[j * (d * m_nProperties) + d * n + i] = (depthInterpolation(&m_spharm[j].depth[m_spharm[j].vertex.size() * n], fid, coeff, m_spharm[j].sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
@@ -1060,16 +1049,43 @@ float GroupwiseRegistration::depthVariance(void)
 float GroupwiseRegistration::depthInterpolation(float *refMap, int index, float *coeff, Mesh *mesh)
 {
 	float depth = 0;
-	float err = 0; // numerical error
-	bool success = false;
 
-	Face f = *mesh->face(index);
-	Vertex a = *f.vertex(0);
-	Vertex b = *f.vertex(1);
-	Vertex c = *f.vertex(2);
-	depth = refMap[a.id()] * coeff[0] + refMap[b.id()] * coeff[1] + refMap[c.id()] * coeff[2];
+	if (index != -1)
+	{
+		Face f = *mesh->face(index);
+		Vertex a = *f.vertex(0);
+		Vertex b = *f.vertex(1);
+		Vertex c = *f.vertex(2);
+		depth = refMap[a.id()] * coeff[0] + refMap[b.id()] * coeff[1] + refMap[c.id()] * coeff[2];
+	}
 
 	return depth;
+}
+
+float GroupwiseRegistration::edgeCost(void)
+{
+	float length[100];
+
+	for (int i = 0; i < m_nSubj; i++)
+	{
+		int nVertex = m_spharm[i].sphere->nVertex();
+		for (int j = 0; j < nVertex; j++)
+		{
+			int n = m_spharm[i].sphere->vertex(j)->nNeighbor();
+			const float *fv = m_spharm[i].sphere->vertex(j)->fv();
+			const int *list = m_spharm[i].sphere->vertex(j)->list();
+			for (int k = 0; k < n; k++)
+			{
+				const float *fv2 = m_spharm[i].sphere->vertex(list[k])->fv();
+				MathVector v = MathVector(fv2) - MathVector(fv);
+				length[k] = v.norm();
+			}
+			m_spharm[i].edge_var[j] = Statistics::var(length, n);
+		}
+	}
+	float var = Statistics::max(m_edgeVar, m_nEdges);
+	
+	return var;
 }
 
 float GroupwiseRegistration::cost(float *coeff, int statusStep)
@@ -1084,15 +1100,19 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 	//float cost = landmarkEntropyMedian();
 	float lcost = landmarkEntropyMulti();
 	float ecost = edgeCost();
-	float cost = lcost + ecost;
+	float cost = lcost;
 	if (nIter % statusStep == 0)
 	{
-		cout << "Cost: " << cost << " = " << lcost << " + " << ecost << endl;
+		cout << "[" << nIter << "] " << cost << " = " << lcost << " + " << ecost << endl;
+		for (int subj = 0; subj < m_nSubj; subj++)
+		{
+			saveLCoeff(m_output[subj], subj);
+		}
 		//cout << edgeCost() << endl;
 		//printf("%0#8d\t%f\n", nIter, cost);
 		if (m_clfp != NULL)
 		{
-			fprintf(m_clfp, "%0#8d\t%f\t", nIter, cost);
+			fprintf(m_clfp, "[%0#6d] %f = %f + %f", nIter, cost, lcost, ecost);
 			//for (int id = 0; id < m_nSubj; id++)
 			//{
 			//	fprintf(m_clfp, "%f\t%f\t", *m_spharm[id].coeff[0], *m_spharm[id].coeff[1]);

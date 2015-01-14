@@ -15,7 +15,7 @@ class GroupwiseRegistration
 public:
 	GroupwiseRegistration(void);
 	GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, int nSubj, int deg = 5, char *coeffLog = NULL, int nProperties = 1, int maxIter = 30000);
-	GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg = 5, int nProperties = 1, bool propLoc = false, char *tmpSurf = NULL, char **surf = NULL, char *coeffLog = NULL, char **coeff = NULL, int maxIter = 30000);
+	GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg = 5, int nProperties = 1, bool propLoc = false, char *tmpSurf = NULL, char **surf = NULL, char *coeffLog = NULL, char **coeff = NULL, int maxIter = 30000, char **output = NULL);
 	~GroupwiseRegistration(void);
 	void saveLDeformation(char *filename);
 	void saveLCoeff(char *filename, int id);
@@ -63,6 +63,7 @@ private:
 		float *meanDepth;
 		float *maxDepth;
 		float *minDepth;
+		float *edge_var;
 	};
 	struct entropy
 	{
@@ -90,17 +91,22 @@ private:
 	vector<int> m_entropyList;
 	entropy *m_entropy;
 	char **m_coeff_fn;
+	int m_nEdges;
 	
 	// work space
 	float *m_cov_depth;
 	float *m_pointList;
 	float *m_cov_eig;
+	float *m_edgeVar;
 
 	// tic
 	int nIter;
 
 	// log
 	FILE *m_clfp;
+	
+	// output list
+	char **m_output;
 };
 
 class cost_function
