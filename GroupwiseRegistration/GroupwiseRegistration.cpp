@@ -143,6 +143,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 	
 	m_coeff = new float[m_csize * 2];
 	memset(m_coeff, 0, sizeof(float) * m_csize * 2);
+	m_updated = new bool[nSubj];
 
 	for (int subj = 0; subj < nSubj; subj++)
 	{
@@ -215,7 +216,6 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		}
 
 		// deformed irregular sphere
-		m_updated = new bool[subj];
 		cout << "Updating sphere deformation.. ";
 		updateDeformation(subj);
 		cout << "done\n";
@@ -315,7 +315,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		for (int i = 0; i < depth; i++)
 		{
 			float coeffs[3];
-			int id = m_tree->closestFace(m_depthvar[i], coeffs, 0.0001);
+			int id = m_tree->closestFace(m_depthvar[i], coeffs, 0.01);
 			m_pointList[nSubj * depth * nProperties + n * depth + i] = (depthInterpolation(&m_depth[nDepth * n], id, coeffs, m_sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
 		}
 	}
@@ -676,10 +676,11 @@ float GroupwiseRegistration::landmarkEntropyMulti(void)
 						m_updated[j] = true;
 						m_spharm[j].tree->update();
 					}
-					fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff, 0.0001);
+					fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff, 0.01);
 				}
 				//p[j * (n * 3 + d * 1) + n * 3 + i] = depthInterpolation(m_spharm[j].depth, fid, coeff, m_spharm[j].sphere);
 				p[j * (d * m_nProperties) + d * n + i] = (depthInterpolation(&m_spharm[j].depth[m_spharm[j].vertex.size() * n], fid, coeff, m_spharm[j].sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
+					
 				//p[j * (d * m_nProperties) + d * n + i] = depthInterpolation(&m_spharm[j].depth[m_spharm[j].vertex.size() * n], fid, coeff, m_spharm[j].sphere);
 
 				m_spharm[j].depth_cache[d * n + i] = fid;
@@ -693,8 +694,9 @@ float GroupwiseRegistration::landmarkEntropyMulti(void)
 	// entropy
 	float *eig = new float[nSubj];
 	eigenvalues(cov, nSubj, eig);
+	
 	for (int i = 1; i < nSubj; i++)
-		E += log(eig[i]);
+		E += log(eig[i] + 1e-5);
 
 	return E;
 }
@@ -1099,11 +1101,12 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 	//float cost = landmarkEntropy();
 	//float cost = landmarkEntropyMedian();
 	float lcost = landmarkEntropyMulti();
-	float ecost = edgeCost();
+	//float ecost = edgeCost();
 	float cost = lcost;
 	if (nIter % statusStep == 0)
 	{
-		cout << "[" << nIter << "] " << cost << " = " << lcost << " + " << ecost << endl;
+		//cout << "[" << nIter << "] " << cost << " = " << lcost << " + " << ecost << endl;
+		cout << "[" << nIter << "] " << cost << endl;
 		for (int subj = 0; subj < m_nSubj; subj++)
 		{
 			saveLCoeff(m_output[subj], subj);
@@ -1112,7 +1115,8 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 		//printf("%0#8d\t%f\n", nIter, cost);
 		if (m_clfp != NULL)
 		{
-			fprintf(m_clfp, "[%0#6d] %f = %f + %f", nIter, cost, lcost, ecost);
+			//fprintf(m_clfp, "[%0#6d] %f = %f + %f", nIter, cost, lcost, ecost);
+			fprintf(m_clfp, "[%0#6d] %f", nIter, cost);
 			//for (int id = 0; id < m_nSubj; id++)
 			//{
 			//	fprintf(m_clfp, "%f\t%f\t", *m_spharm[id].coeff[0], *m_spharm[id].coeff[1]);

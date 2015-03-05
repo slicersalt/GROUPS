@@ -198,6 +198,14 @@ private:
 class Coordinate
 {
 public:
+	static void cart2sph(const double *v, double *phi, double *theta)
+	{
+		// phi: azimuth, theta: elevation
+		double d = v[0] * v[0] + v[1] * v[1];
+		*phi = (d == 0) ? 0: atan2(v[1], v[0]);
+		*theta = (v[2] == 0) ? 0: atan2(v[2], sqrt(d));
+	}
+	
 	static void cart2sph(float *v, float *phi, float *theta)
 	{
 		// phi: azimuth, theta: elevation
@@ -645,6 +653,52 @@ public:
 			P[l][l-1] = (float)(2 * l - 1) * x * P[l-1][l-1];
 			// P_l,l = (2l-1)*factor*P_l-1,l-1
 			P[l][l] = (float)(2 * l - 1) * factor * P[l-1][l-1];
+		}
+
+		for (int i = 0; i <= n; i++) Y[i] = P[n][i];
+
+		// release memory
+		for (int i = 0; i <= n; i++) delete [] P[i];
+		delete [] P;
+	};
+	
+	static void legendre(int n, double x, double *Y)
+	{
+		if (n < 0) return;
+
+		double **P = new double*[n + 1];
+		for (int i = 0; i <= n; i++) P[i] = new double[n + 1];
+		double factor = -sqrt(1.0 - pow(x,2));
+ 
+		// Init legendre
+		P[0][0] = 1.0;        // P_0,0(x) = 1
+		if (n == 0)
+		{
+			Y[0] = P[0][0];
+			return;
+		}
+
+		// Easy values
+		P[1][0] = x;      // P_1,0(x) = x
+		P[1][1] = factor;     // P_1,1(x) = −sqrt(1 − x^2)
+		if (n == 1)
+		{
+			Y[0] = P[1][0];
+			Y[1] = P[1][1];
+			return;
+		}
+ 
+		for (int l = 2; l <= n; l++)
+		{
+			for (int m = 0; m < l - 1 ; m++)
+			{
+				// P_l,m = (2l-1)*x*P_l-1,m - (l+m-1)*x*P_l-2,m / (l-k)
+				P[l][m] = ((double)(2 * l - 1) * x * P[l - 1][m] - (double)(l + m - 1) * P[l - 2][m]) / (double)(l - m);
+			}
+			// P_l,l-1 = (2l-1)*x*P_l-1,l-1
+			P[l][l-1] = (double)(2 * l - 1) * x * P[l-1][l-1];
+			// P_l,l = (2l-1)*factor*P_l-1,l-1
+			P[l][l] = (double)(2 * l - 1) * factor * P[l-1][l-1];
 		}
 
 		for (int i = 0; i <= n; i++) Y[i] = P[n][i];
