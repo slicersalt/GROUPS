@@ -1,8 +1,9 @@
+#include <cstring>
+#include <float.h>
 #include "GroupwiseRegistration.h"
 #include "SphericalHarmonics.h"
 #include "lapack/lapacke.h"
 #include "newuoa.h"
-#include "string.h"
 
 GroupwiseRegistration::GroupwiseRegistration(void)
 {
