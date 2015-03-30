@@ -13,14 +13,16 @@ include_directories(Mesh GroupwiseRegistration)
 include_directories( ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR} )
 
 #Convert my XML into a C/C++ file->Creates GRccmTestProjectCLP.h in the binary directory
-generateCLP(GRTestProject_SRC GRTestProject.xml )
+generateCLP(GRTestProject_SRC wrapper/GRTestProject.xml)
 
-set (Registration_SOURCES GroupwiseRegistration/GroupwiseRegistration.cpp
-	GroupwiseRegistration/GroupwiseRegistration.h
-	GroupwiseRegistration/SphericalHarmonics.h GroupwiseRegistration/newuoa.h
-	GroupwiseRegistration/itkTimer.cpp GroupwiseRegistration/itkTimer.h)
+# MESH library
+set(MESH_LIB_DIR /NIRAL/work/ilwoolyu/MeshLib)
+include_directories(${MESH_LIB_DIR}/include ${MESH_LIB_DIR}/include/Util)
+link_directories(${MESH_LIB_DIR}/res)
 
-set (Mesh_SOURCES Mesh/Mesh.cpp Mesh/MeshIO.cpp Mesh/MeshIO.h Mesh/ObjIO.cpp Mesh/ObjIO.h Mesh/VtkIO.cpp Mesh/VtkIO.h)
+set (Registration_SOURCES src/GroupwiseRegistration.cpp)
+include_directories(src)
 
-add_executable(Groups ${Registration_SOURCES} ${Mesh_SOURCES} GRTestProject.cpp ${GRTestProject_SRC})
-target_link_libraries(Groups ${LAPACK_LIBRARIES})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
+add_executable(Groups ${Registration_SOURCES} wrapper/GRTestProject.cpp ${GRTestProject_SRC})
+target_link_libraries(Groups ${LAPACK_LIBRARIES} Mesh)
