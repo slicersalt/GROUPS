@@ -68,6 +68,7 @@ std::vector<std::string> sortSurfFiles (std::string surfPath, std::string propPa
 		  	}
 		}
 	}
+	std::sort(sortedFileList.begin(), sortedFileList.end());
 	return sortedFileList;
 }
 std::vector<std::string> sortFiles (std::string path, std::string ID){
@@ -79,7 +80,6 @@ std::vector<std::string> sortFiles (std::string path, std::string ID){
 	int substring;
 //	std::vector<std::string>::iterator it;
 	if (directoryFileList.size() > 0) {
-		bool doesHaveProp = false;
 		for (int listIndex = 0; listIndex < directoryFileList.size(); listIndex++) {
 			std::string currentString = directoryFileList[listIndex];
 //			it = directoryFileList.begin() + listIndex;
@@ -91,6 +91,7 @@ std::vector<std::string> sortFiles (std::string path, std::string ID){
 		  	}
 		}
 	}
+	std::sort(sortedFileList.begin(), sortedFileList.end());
 	return sortedFileList;
 }
 
@@ -119,7 +120,7 @@ std::vector<std::string> sortFiles (std::vector<std::string> list, std::string I
 		  	}
 		}
 	}
-
+	std::sort(sortedFileList.begin(), sortedFileList.end());
 	return sortedFileList;
 }
 
@@ -179,7 +180,7 @@ int main(int argc , char* argv[])
  	std::cout<<"Max Iterations: " << maxIter << std::endl ;
  	std::cout<<"addLoc: " << addLoc << std::endl ;
  	std::cout<<"Temp Surf: " << tempSurface << std::endl ;
-	std::vector<std::string> surfaceFiles, coefficientFiles, allPropertyFiles, extSpecifiedPropFiles, outputFiles;
+	std::vector<std::string> surfaceFiles, coefficientFiles, allPropertyFiles, extSpecifiedPropFiles, landmarkFiles, asphereFiles, outputFiles;
 	
 //Handling of Surface directory**********************************************************
 
@@ -273,9 +274,32 @@ int main(int argc , char* argv[])
 		tempSurf = new char[tempSurface.length() + 1];
 		std::strcpy(tempSurf, tempSurface.c_str());
 	}
+	
+	// landmark directory
+	char **landmark = NULL;
+	if(!lmDir.empty()){
+		landmarkFiles = sortFiles(lmDir, TXTSUFFIX);
+		int lmSize = landmarkFiles.size();
+		landmark = putFilesInCharList(landmarkFiles, lmSize);
+		std::cout<<"Landmark Directory: "<< lmDir << std::endl ;
+		for(int i = 0; i < lmSize; i++)
+			std::cout<< "	" << landmark[i] << ' ' << std::endl ;
+	}
+	
+	// aligned sphere directory
+	char **alignedSphere = NULL;
+	if(!asphereDir.empty()){
+		asphereFiles = sortFiles(asphereDir, TXTSUFFIX);
+		int asphereSize = asphereFiles.size();
+		alignedSphere = putFilesInCharList(asphereFiles, asphereSize);
+		std::cout<<"Alinged Sphere Directory: "<< asphereDir << std::endl ;
+		for(int i = 0; i < asphereSize; i++)
+			std::cout<< "	" << alignedSphere[i] << ' ' << std::endl ;
+	}
+	
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
-	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter, outFileList);
+	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, landmark, alignedSphere, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter, outFileList);
 	//GroupwiseRegistration *r = new GroupwiseRegistration(sph, NULL, NULL, surfSize, degree, 0, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);	// location only
 	
 	for (int i = 0; i < outSize; i++)

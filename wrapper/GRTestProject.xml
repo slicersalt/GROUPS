@@ -26,7 +26,6 @@
 		</integer>
 		<string>
 			<longflag>logFile</longflag>
-			<flag>l</flag>
 			<name>logfile</name>
 		</string>
 		<integer>
@@ -56,6 +55,17 @@
 			<flag>p</flag>
 			<name>propDir</name>
 			<description>Path to property directory</description>
+		</directory>
+		<directory>
+			<longflag>landmark</longflag>
+			<flag>l</flag>
+			<name>lmDir</name>
+			<description>Path to landmark directory</description>
+		</directory>
+		<directory>
+			<longflag>alignedSphere</longflag>
+			<name>asphereDir</name>
+			<description>Path to aligned sphere directory</description>
 		</directory>
 		<directory>
 			<longflag>mapDir</longflag>
