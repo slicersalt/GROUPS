@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <executable>
 <title>GRTestProject</title>
-<version>0.1</version>
-<contributor>Hamid Ali</contributor>
-<description>xml for GR Test Project</description>
+<version>1.0</version>
+<contributor>Ilwoo Lyu and Hamid Ali</contributor>
+<description>Landmarks should be given as a list of vertex indices</description>
 	<parameters>
 		<string>
 			<longflag>sphere</longflag>
