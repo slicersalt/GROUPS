@@ -28,15 +28,14 @@ private:
 	void updateDeformation(int subject);
 	void optimization(void);
 	void eigenvalues(float *M, int dim, float *eig);
-	int testFolding(Mesh *mesh);
+	int testFlip(Mesh *mesh, const bool *flip);
 	int icosahedron(int degree);
 	float landmarkEntropyMulti(void);
 	float landmarkEntropy(void);
 	float landmarkEntropyMedian(void);
 	float depthVariance(void);
 	float depthInterpolation(float *refMap, int index, float *coeff, Mesh *mesh);
-	float edgeCost(void);
-	float foldingCost(void);
+	float flipCost(void);
 
 private:
 	struct point
@@ -67,6 +66,7 @@ private:
 		float *minDepth;
 		float *sdevDepth;
 		float *edge_var;
+		bool *flip;
 	};
 	struct entropy
 	{

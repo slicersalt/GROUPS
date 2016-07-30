@@ -129,11 +129,6 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 			m_sdevDepth[n] = 1;
 		}
 	}
-	/*cout << "Mean: " << m_meanDepth[0] << " " << m_meanDepth[1] << " " << m_meanDepth[2] << endl;
-	cout << "Min: " << m_minDepth[0] << " " << m_minDepth[1] << " " << m_minDepth[2] << endl;
-	cout << "Max: " << m_maxDepth[0] << " " << m_maxDepth[1] << " " << m_maxDepth[2] << endl;*/
-
-	//cout << "Depth Range: [" << m_minDepth << ", " << m_maxDepth << "]\n";
 
 	for (int i = 0; i < m_sphere->nFace(); i++)
 		m_entropy[i].occupied = false;
@@ -212,7 +207,6 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 			m_spharm[subj].coeff = new float*[n * 2];
 			for (int i = 0; i < n; i++)
 			{
-				//cout << "init: " << m_coeff[nSubj * 2 * i + subj * 2] << " " << m_coeff[nSubj * 2 * i + subj * 2 + 1] << endl;
 				m_spharm[subj].coeff[i] = &m_coeff[nSubj * 2 * i + subj * 2];
 				m_spharm[subj].coeff[n + i] = &m_coeff[nSubj * 2 * i + subj * 2 + 1];
 			}
@@ -241,11 +235,6 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 			m_spharm[subj].vertex.push_back(p);
 		}
 
-		// deformed irregular sphere
-		/*cout << "Updating sphere deformation.. ";
-		updateDeformation(subj);
-		cout << "done\n";*/
-
 		// AABB tree construction
 		cout << "Constructing a search tree.. ";
 		m_spharm[subj].tree = new AABB(m_spharm[subj].sphere);
@@ -254,11 +243,13 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		// depth information
 		cout << "Loading depth information.. \n";
 		int nDepth = m_spharm[subj].sphere->nVertex();
+		int nFace = m_spharm[subj].sphere->nFace();
 		m_spharm[subj].meanDepth = new float[nProperties];
 		m_spharm[subj].maxDepth = new float[nProperties];
 		m_spharm[subj].minDepth = new float[nProperties];
 		m_spharm[subj].sdevDepth = new float[nProperties];
 		m_spharm[subj].depth = new float[nDepth * nProperties];
+		m_spharm[subj].flip = new bool[nFace];
 		
 		count = 0;
 		for (int n = 0; n < nProperties; n++)
@@ -304,9 +295,23 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 				if (m_sdevDepth[n] < m_spharm[subj].sdevDepth[n]) m_sdevDepth[n] = m_spharm[subj].sdevDepth[n];
 			}
 		}
-		/*cout << "Mean: " << m_spharm[subj].meanDepth[0] << " " << m_spharm[subj].meanDepth[1] << " " << m_spharm[subj].meanDepth[2] << endl;
-		cout << "Min: " << m_spharm[subj].minDepth[0] << " " << m_spharm[subj].minDepth[1] << " " << m_spharm[subj].minDepth[2] << endl;
-		cout << "Max: " << m_spharm[subj].maxDepth[0] << " " << m_spharm[subj].maxDepth[1] << " " << m_spharm[subj].maxDepth[2] << endl;*/
+		
+		// flip check
+		for (int i = 0; i < nFace; i++)
+		{
+			const float *v1 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(0))->fv();
+			const float *v2 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(1))->fv();
+			const float *v3 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(2))->fv();
+
+			Vector V1(v1), V2(v2), V3(v3);
+			Vector V = (V1 + v2 + V3) / 3;
+
+			Vector U = (V2 - V1).cross(V3 - V1);
+
+			if (V * U < 0) m_spharm[subj].flip[i] = true;
+			else m_spharm[subj].flip[i] = false;
+		}
+		
 		cout << "done\n";
 	}
 
@@ -435,8 +440,6 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 		}
 	}
 
-	//cout << "Depth Range: [" << m_minDepth << ", " << m_maxDepth << "]\n";
-
 	for (int i = 0; i < m_sphere->nFace(); i++)
 		m_entropy[i].occupied = false;
 
@@ -513,7 +516,6 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 			m_spharm[subj].coeff = new float*[n * 2];
 			for (int i = 0; i < n; i++)
 			{
-				//cout << "init: " << m_coeff[nSubj * 2 * i + subj * 2] << " " << m_coeff[nSubj * 2 * i + subj * 2 + 1] << endl;
 				m_spharm[subj].coeff[i] = &m_coeff[nSubj * 2 * i + subj * 2];
 				m_spharm[subj].coeff[n + i] = &m_coeff[nSubj * 2 * i + subj * 2 + 1];
 			}
@@ -542,11 +544,6 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 			m_spharm[subj].vertex.push_back(p);
 		}
 
-		// deformed irregular sphere
-		/*cout << "Updating sphere deformation.. ";
-		updateDeformation(subj);
-		cout << "done\n";*/
-
 		// AABB tree construction
 		cout << "Constructing a search tree.. ";
 		m_spharm[subj].tree = new AABB(m_spharm[subj].sphere);
@@ -555,6 +552,7 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 		// depth information
 		cout << "Loading depth information.. ";
 		int nDepth = m_spharm[subj].sphere->nVertex();
+		int nFace = m_spharm[subj].sphere->nFace();
 		if (nProperties > 0)
 		{
 			m_spharm[subj].meanDepth = new float[nProperties];
@@ -563,6 +561,7 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 			m_spharm[subj].sdevDepth = new float[nProperties];
 			m_spharm[subj].depth = new float[nDepth * nProperties];
 		}
+		m_spharm[subj].flip = new bool[nFace];
 		cout << endl;
 		count = 0;
 		for (int n = 0; n < nProperties; n++)
@@ -608,6 +607,23 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 				if (m_sdevDepth[n] < m_spharm[subj].sdevDepth[n]) m_sdevDepth[n] = m_spharm[subj].sdevDepth[n];
 			}
 		}
+
+		// flip check
+		for (int i = 0; i < nFace; i++)
+		{
+			const float *v1 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(0))->fv();
+			const float *v2 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(1))->fv();
+			const float *v3 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(2))->fv();
+
+			Vector V1(v1), V2(v2), V3(v3);
+			Vector V = (V1 + v2 + V3) / 3;
+
+			Vector U = (V2 - V1).cross(V3 - V1);
+
+			if (V * U < 0) m_spharm[subj].flip[i] = true;
+			else m_spharm[subj].flip[i] = false;
+		}
+		
 		cout << "done\n";
 
 		// entropy computation
@@ -685,18 +701,6 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 		}
 	}
 
-	/*for (int i = 0; i < depth; i++)
-	{
-		float coeff[3];
-		int id = m_tree->closestFace(m_entropy[m_entropyList[i]].p, coeff);
-		m_pointList[nSubj * (landmark + depth) + landmark + i] = depthInterpolation(m_depth, id, coeff, m_sphere);
-	}*/
-	/*for (int i = 0; i < m_entropyList.size(); i++)
-	{
-		int id = m_entropyList[i];
-		memcpy(&m_pointList[nSubj * m_entropyList.size() * 3 + i * 3], m_entropy[id].p, sizeof(float) * 3);
-	}*/
-	
 	// dpeth cache
 	if (nProperties > 0)
 	{
@@ -763,61 +767,6 @@ void GroupwiseRegistration::reconsCoord(const float *v0, float *v1, float *Y, fl
 	Coordinate::rotPoint(rv, rot, v1);
 }
 
-/*void GroupwiseRegistration::reconsCoord(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole)
-{
-	// spharm basis
-	int n = (degree + 1) * (degree + 1);
-
-	float mat[9];
-	memset(mat, 0, sizeof(float) * 9);
-	Coordinate::rotation2equator((float *)v0, mat, pole);
-
-	// rotation to the eqautor
-	float rv[3];
-	Coordinate::rotPoint(v0, mat, rv);
-	
-	// polar coodinate
-	float phi, theta;
-	Coordinate::cart2sph(rv, &phi, &theta);
-
-	// displacement
-	float delta[2] = {0, 0};
-	for (int i = 0; i < n; i++)
-	{
-		delta[0] += Y[i] * *coeff[i];
-		delta[1] += Y[i] * *coeff[n + i];
-	}
-	phi += delta[0]; theta += delta[1];
-	
-	Coordinate::sph2cart(phi, theta, rv);
-
-	// inverse rotation
-	Coordinate::rotPointInv(rv, mat, v1);
-}*/
-
-/*void GroupwiseRegistration::reconsCoord(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole)
-{
-	// spharm basis
-	int n = (degree + 1) * (degree + 1);
-
-	// polar coodinate
-	float phi, theta;
-	Coordinate::cart2sph((float *)v0, &phi, &theta);
-	
-	float ratio = cos(theta);
-	
-	// displacement
-	float delta[2] = {0, 0};
-	for (int i = 0; i < n; i++)
-	{
-		delta[0] += Y[i] * *coeff[i];
-		delta[1] += Y[i] * *coeff[n + i];
-	}
-	phi += delta[0];
-	theta += delta[1] * ratio;
-	Coordinate::sph2cart(phi, theta, v1);
-}*/
-
 void GroupwiseRegistration::updateDeformation(int subject)
 {
 	for (int i = 0; i < m_spharm[subject].vertex.size(); i++)
@@ -827,17 +776,6 @@ void GroupwiseRegistration::updateDeformation(int subject)
 		Vertex *v = (Vertex *)m_spharm[subject].sphere->vertex(i);
 		MathVector V(v1); V.unit();
 		v->setVertex(V.fv());
-
-		// debug
-		/*if (*m_spharm[subject].coeff[0] !=0)
-			cout << " " <<*m_spharm[subject].coeff[0] << endl;
-		float *v0 = m_spharm[subject].vertex[i]->v;
-		for (int j = 0; j < 3; j++)
-			cout << v0[j] << " ";
-		cout << " -> ";
-		for (int j = 0; j < 3; j++)
-			cout << v1[j] << " ";
-		cout << endl;*/
 	}
 	m_updated[subject] = false;
 }
@@ -924,16 +862,11 @@ float GroupwiseRegistration::landmarkEntropy(void)
 	float *cov = m_cov_eig;	memset(cov, 0, sizeof(float) * nSubj * nSubj);
 	float *p = m_pointList;
 
-	//FILE *fp=fopen("a.txt","w");
 	for (int i = 0; i < n; i++)
 	{
 		float m[3] = {0, 0, 0};
 		int id = m_entropyList[i];
 		int nSamples = m_entropy[id].samples.size();
-		/*// point on the template
-		memcpy(&m_pointList[nSamples * (n * 3 + d * m_nProperties) + i * 3], m_entropy[id].p, sizeof(float) * 3);
-		memcpy(m, m_entropy[id].p, sizeof(float) * 3);*/
-		// deformed points
 		for (int j = 0; j < nSamples; j++)
 		{
 			int subj = m_entropy[id].samples[j]->subject;
@@ -954,7 +887,6 @@ float GroupwiseRegistration::landmarkEntropy(void)
 			int subj = m_entropy[id].samples[j]->subject;
 			Coordinate::proj2plane(m[0], m[1], m[2], -1, &p[subj * (n * 3 + d * m_nProperties) + i * 3], newp);
 			memcpy(&p[subj * (n * 3 + d * m_nProperties) + i * 3], newp, sizeof(float) * 3);
-			//fprintf(fp, "%f %f %f %f %f %f %f\n", m[0], m[1], m[2], newp[0],newp[1],newp[2],(float)j);
 		}
 	}
 
@@ -1039,7 +971,6 @@ float GroupwiseRegistration::landmarkEntropyMedian(void)
 	float u = (d2 + d1) / 2;
 	float sigma = ((d2 + d1) / 2 - d1) / 3;
 
-	//FILE *fp=fopen("lm.txt","w");
 	for (int i = 0; i < n; i++)
 	{
 		int id = m_entropyList[i];
@@ -1093,14 +1024,8 @@ float GroupwiseRegistration::landmarkEntropyMedian(void)
 			newp[2] = m[2] + (newp[2] - m[2]) * ratio;
 
 			memcpy(&p[j * (n * 3 + d * m_nProperties) + i * 3], newp, sizeof(float) * 3);
-			//fprintf(fp, "%f %f %f %f %f %f %f\n", m[0], m[1], m[2], newp[0],newp[1],newp[2],(float)j);
-			/*fprintf(fp, "%f ", p[j * (n * 3 + d * 1) + i * 3]);
-			fprintf(fp, "%f ", p[j * (n * 3 + d * 1) + i * 3+1]);
-			fprintf(fp, "%f ", p[j * (n * 3 + d * 1) + i * 3+2]);*/
 		}
-		//fprintf(fp, "\n");
 	}
-	//fclose(fp);
 
 	// depth information
 	//fp=fopen("depth.txt","w");
@@ -1159,50 +1084,6 @@ float GroupwiseRegistration::landmarkEntropyMedian(void)
 
 	Statistics::wcov_trans(p, nSubj, n * 3 + d * m_nProperties, cov, m_cov_weight);
 
-	//fp = fopen("col.txt", "w");
-	//for (int i = 0; i < n * 3 + d * 1; i++)
-	//{
-	//	//fprintf(fp, "%d: ", i);
-	//	for (int j = 0; j < nSubj; j++)
-	//		fprintf(fp, "%f ", p[i + (n * 3 + d * 1) * j]);
-	//	fprintf(fp, "\n");
-	//}
-	//fclose(fp);
-
-	/*fp = fopen("w.txt", "w");
-	for (int i = 0; i < n+d; i++)
-	{
-		fprintf(fp, "%f\n", m_cov_weight[i]);
-	}
-	fclose(fp);*/
-
-	/*FILE *fp = fopen("wcov.txt", "w");
-	for (int i = 0; i < nSubj; i++)
-	{
-		for (int j = 0; j < nSubj; j++)
-			fprintf(fp, "%f ", cov[i * nSubj + j]);
-		fprintf(fp, "\n");
-	}
-	fclose(fp);*/
-
-	/*float *mm = new float[n*3+d*1];
-	
-	memset(mm, 0, sizeof(float) * (n*3+d*1));
-	Statistics::sum(p, nSubj, n*3+d*1, mm);
-
-	fp = fopen("sum.txt", "w");
-	for (int i=0;i<n*3+d*1;i++)
-		fprintf(fp, "%f\n", mm[i]);
-	fclose(fp);
-
-	memset(mm, 0, sizeof(float) * (n*3+d*1));
-	Statistics::mean(p, nSubj, n*3+d*1, mm);
-
-	fp = fopen("mean.txt", "w");
-	for (int i=0;i<n*3+d*1;i++)
-		fprintf(fp, "%f\n", mm[i]);
-	fclose(fp);*/
-
 	// entropy
 	float *eig = new float[nSubj];
 	eigenvalues(cov, nSubj, eig);
@@ -1222,21 +1103,6 @@ void GroupwiseRegistration::eigenvalues(float *M, int dim, float *eig)
 
 	ssyev_("N", "L", &n, M, &lda, eig, work, &lwork, &info);
 
-	/*int neg = 0;
-	int nnz = 0;
-	for (int i = 0; i < dim; i++)
-	{
-		if (fabs(eig[i]) > 0)
-		{
-			nnz++;
-			if (eig[i] < 0)
-				neg++;
-		}
-	}
-	if (nnz == neg)
-		for (int i = 0; i < dim; i++)
-			eig[i] *= -1;*/
-
 	delete [] work;
 }
 
@@ -1255,8 +1121,6 @@ float GroupwiseRegistration::depthVariance(void)
 			float depth = depthInterpolation(&m_spharm[j].depth[0], id, coeff, m_spharm[j].sphere);
 			//m_cov_depth[j + 1] = depth - m_spharm[j].meanDepth;
 			m_cov_depth[j + 1] = (depth - m_minDepth[0]) / (m_maxDepth[0] - m_minDepth[0]);
-			//cout << "Qry: "<< m_depthvar[i][0] << ", " << m_depthvar[i][1] << ", " << m_depthvar[i][2] << " => ";
-			//cout << id << " (" << coeff[0] << ", " << coeff[1] << ", " << coeff[2] << ")" << endl;
 		}
 		var += Statistics::var(m_cov_depth, m_nSubj + 1);
 	}
@@ -1280,37 +1144,11 @@ float GroupwiseRegistration::depthInterpolation(float *refMap, int index, float 
 	return depth;
 }
 
-float GroupwiseRegistration::edgeCost(void)
-{
-	float length[100];
-
-	for (int i = 0; i < m_nSubj; i++)
-	{
-		int nVertex = m_spharm[i].sphere->nVertex();
-		for (int j = 0; j < nVertex; j++)
-		{
-			int n = m_spharm[i].sphere->vertex(j)->nNeighbor();
-			const float *fv = m_spharm[i].sphere->vertex(j)->fv();
-			const int *list = m_spharm[i].sphere->vertex(j)->list();
-			for (int k = 0; k < n; k++)
-			{
-				const float *fv2 = m_spharm[i].sphere->vertex(list[k])->fv();
-				MathVector v = MathVector(fv2) - MathVector(fv);
-				length[k] = v.norm();
-			}
-			m_spharm[i].edge_var[j] = Statistics::var(length, n);
-		}
-	}
-	float var = Statistics::max(m_edgeVar, m_nEdges);
-	
-	return var;
-}
-
-float GroupwiseRegistration::foldingCost(void)
+float GroupwiseRegistration::flipCost(void)
 {
 	int nFolds = 0;
 	for (int i = 0; i < m_nSubj; i++)
-		nFolds += testFolding(m_spharm[i].sphere);
+		nFolds += testFlip(m_spharm[i].sphere, m_spharm[i].flip);
 	
 	return nFolds;
 }
@@ -1320,10 +1158,9 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 	for (int i = 0; i < m_nSubj; i++)
 	{
 		updateDeformation(i);
-		//m_spharm[i].tree->update();
 	}
 	
-	int nFolds = foldingCost();
+	int nFolds = flipCost();
 	float lcost = m_minscore, fcost = 0;
 	if (nFolds == 0)
 	{
@@ -1334,8 +1171,6 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 		fcost = (nFolds + 1) * fabs(m_minscore);
 	}
 	if (nIter == 0) m_minscore = lcost;
-	//float cost = landmarkEntropyMedian();
-	//float ecost = edgeCost();
 	float cost = lcost + fcost;
 	if (m_minscore > cost) m_minscore = cost;
 	
@@ -1347,52 +1182,21 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 		{
 			saveLCoeff(m_output[subj], subj);
 		}
-		//cout << edgeCost() << endl;
-		//printf("%0#8d\t%f\n", nIter, cost);
 		if (m_clfp != NULL)
 		{
-			//fprintf(m_clfp, "[%0#6d] %f = %f + %f", nIter, cost, lcost, ecost);
 			fprintf(m_clfp, "[%0#6d] %f", nIter, cost);
-			//for (int id = 0; id < m_nSubj; id++)
-			//{
-			//	fprintf(m_clfp, "%f\t%f\t", *m_spharm[id].coeff[0], *m_spharm[id].coeff[1]);
-			//}
-			//for (int id = 0; id < m_nSubj; id++)
-			//{
-			//	//int n = (m_spharm[id].degree + 1) * (m_spharm[id].degree + 1);
-			//	int n = 36;
-			//	fprintf(m_clfp, "%f\t%f\t", *m_spharm[id].coeff[n], *m_spharm[id].coeff[n + 1]);
-			//}
-			/*fprintf(m_clfp, "\n");
-			for (int i = 0; i < 36; i++)
-			{
-				fprintf(m_clfp, "%f\t", *m_spharm[0].coeff[i]);
-			}
-			fprintf(m_clfp, "\n");
-			for (int i = 0; i < 36; i++)
-			{
-				fprintf(m_clfp, "%f\t", *m_spharm[0].coeff[36 + i]);
-			}
-			fprintf(m_clfp, "\n");*/
 			fprintf(m_clfp, "\n");
 			fflush(m_clfp);
 
 			saveLDeformation("group.txt");
-			/*for (int i = 0; i < 42; i++)
-			{
-				char fn[1024];
-				sprintf(fn, "%s", &m_coeff_fn[i][29]);
-				saveLCoeff(fn, i);
-			}*/
 		}
-		//fflush(stdout);
 	}
 	nIter++;
 
 	return cost;
 }
 
-int GroupwiseRegistration::testFolding(Mesh *mesh)
+int GroupwiseRegistration::testFlip(Mesh *mesh, const bool *flip)
 {
 	int nFolds = 0;
 	for (int i = 0; i < mesh->nFace(); i++)
@@ -1406,7 +1210,7 @@ int GroupwiseRegistration::testFolding(Mesh *mesh)
 
 		Vector U = (V2 - V1).cross(V3 - V1);
 
-		if (V * U < 0) nFolds++;
+		if ((V * U < 0 && !flip[i]) || (V * U > 0 && flip[i])) nFolds++;
 	}
 	return nFolds;
 }
@@ -1504,18 +1308,6 @@ int GroupwiseRegistration::icosahedron(int degree)
 			MathVector *f2 = new MathVector[3]; f2[0] = c; f2[1] = v2; f2[2] = v3; triangles.push_back(f2);
 			MathVector *f3 = new MathVector[3]; f3[0] = b; f3[1] = v3; f3[2] = v1; triangles.push_back(f3);
 		}
-		// debug
-		//printf("phase #%d - %d\n", d, triangles.size());
-		////for (int i = triangles.size() - 10; i < triangles.size(); i++)
-		////for (int i = 0 ; i < triangles.size(); i++)
-		//for (int i = 0 ; i < 10; i++)
-		//{
-		//	printf("[%0#2d] ", i);
-		//	MathVector *f = triangles[i];
-		//	for (int j = 0; j < 3; j++)
-		//		printf("[%.3f %.3f %.3f] ", f[j][0], f[j][1], f[j][2]);
-		//	printf("\n");
-		//}
 	}
 	for (int i = 0; i < triangles.size(); i++)
 	{
@@ -1540,7 +1332,6 @@ int GroupwiseRegistration::icosahedron(int degree)
 
 void GroupwiseRegistration::saveLDeformation(char *filename)
 {
-	//float *q = m_entropy[m_entropyList[0]].p;
 	FILE *fp = fopen(filename, "w");
 	for (int i = 0; i < m_entropyList.size(); i++)
 	{
@@ -1552,8 +1343,6 @@ void GroupwiseRegistration::saveLDeformation(char *filename)
 			int subj = m_entropy[id].samples[j]->subject;
 			reconsCoord(m_entropy[id].samples[j]->p, v, m_entropy[id].samples[j]->Y, m_spharm[subj].coeff, m_spharm[subj].degree, m_spharm[subj].pole);
 			fprintf(fp, "%f %f %f %f %f %f %f\n", p[0], p[1], p[2], v[0], v[1], v[2], (float)(m_entropy[id].samples[j]->subject + 1));
-			//float v2[3];Coordinate::proj2plane(q[0],q[1],q[2],-1,v,v2);
-			//fprintf(fp, "%f %f %f %f %f %f %f\n", p[0], p[1], p[2], v2[0], v2[1], v2[2], (float)(m_entropy[id].samples[j]->subject + 1));
 		}
 	}
 	fclose(fp);
