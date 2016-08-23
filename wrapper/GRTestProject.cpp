@@ -297,9 +297,27 @@ int main(int argc , char* argv[])
 			std::cout<< "	" << alignedSphere[i] << ' ' << std::endl ;
 	}
 	
+	vector<double> w;
+	if (!weight.empty())
+	{
+		if (weight.size() != extSize)
+		{
+			cout << "# of the weighting factors is not matched to # of the properties" << endl;
+			return 1;
+		}
+		cout << "Weighting Factors\n";
+		for (int i = 0; i < weight.size(); i++)
+		{
+			w.push_back(atof(weight[i].c_str()));
+			cout << extensions[i] << " - " << w[w.size() - 1] << endl;
+		}
+		if (addLoc != 0)
+			cout << "Spatial weighting factor: " << addLoc << endl;
+	}
+
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
-	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, landmark, alignedSphere, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter, outFileList);
+	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, landmark, alignedSphere, w, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter, outFileList);
 	//GroupwiseRegistration *r = new GroupwiseRegistration(sph, NULL, NULL, surfSize, degree, 0, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);	// location only
 	
 	for (int i = 0; i < outSize; i++)
