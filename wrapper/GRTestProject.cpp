@@ -297,7 +297,7 @@ int main(int argc , char* argv[])
 			std::cout<< "	" << alignedSphere[i] << ' ' << std::endl ;
 	}
 	
-	vector<double> w;
+	float *w = new float[extSize];
 	if (!weight.empty())
 	{
 		if (weight.size() != extSize)
@@ -305,15 +305,21 @@ int main(int argc , char* argv[])
 			cout << "# of the weighting factors is not matched to # of the properties" << endl;
 			return 1;
 		}
-		cout << "Weighting Factors\n";
 		for (int i = 0; i < weight.size(); i++)
-		{
-			w.push_back(atof(weight[i].c_str()));
-			cout << extensions[i] << " - " << w[w.size() - 1] << endl;
-		}
-		if (addLoc != 0)
-			cout << "Spatial weighting factor: " << addLoc << endl;
+			w[i] = weight[i];
 	}
+	else
+	{
+		for (int i = 0; i < weight.size(); i++)
+			w[i] = 1;
+	}
+	cout << "Weighting Factors\n";
+	for (int i = 0; i < weight.size(); i++)
+	{
+		cout << extensions[i] << " - " << w[i] << endl;
+	}
+	if (addLoc != 0)
+		cout << "Spatial weighting factor: " << addLoc << endl;
 
 // Call main procedure
 	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff

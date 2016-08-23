@@ -33,12 +33,12 @@
 			<flag>r</flag>
 			<name>maxIter</name>
 		</integer>
-		<double>
-			<longflag>addLocFactir</longflag>
+		<float>
+			<longflag>addLocFactor</longflag>
 			<flag>a</flag>
 			<name>addLoc</name>
 			<default>0</default>
-		</double>
+		</float>
 		<directory>
 			<longflag>surfDir</longflag>
 			<flag>i</flag>
@@ -96,11 +96,11 @@
 			<name>extensions</name>
 			<description>List of desired property extensions</description>
 		</string-vector>
-		<string-vector>
+		<float-vector>
 			<longflag>weight</longflag>
 			<flag>w</flag>
 			<name>weight</name>
 			<description>List of weighting factors corresponding to properties</description>
-		</string-vector>
+		</float-vector>
   	</parameters>
 </executable>
