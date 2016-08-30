@@ -9,14 +9,14 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 {
 }
 
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, char **landmark, char **asphere, int deg, int nProperties, bool propLoc, char *tmpSurf, char **surf, char *coeffLog, char **coeff, int maxIter, char **output)
+GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, char **landmark, char **asphere, const float *weight, int deg, int nProperties, float propLoc, char *tmpSurf, char **surf, char *coeffLog, char **coeff, int maxIter, char **output)
 {
 	m_maxIter = maxIter;
 	m_nSubj = nSubj;
 	m_minscore = FLT_MAX;
 	if (output != NULL) m_output = output;
-	if (landmark == NULL) init_multi(sphere, tmpDepth, subjDepth, coeff, asphere, nSubj, deg, nProperties, propLoc, tmpSurf, surf);
-	else init(sphere, tmpDepth, subjDepth, coeff, landmark, asphere, nSubj, deg, nProperties, propLoc, tmpSurf, surf);
+	if (landmark == NULL) init_multi(sphere, tmpDepth, subjDepth, coeff, asphere, nSubj, weight, deg, nProperties, propLoc, tmpSurf, surf);
+	else init(sphere, tmpDepth, subjDepth, coeff, landmark, asphere, nSubj, weight, deg, nProperties, propLoc, tmpSurf, surf);
 	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
 	else m_clfp = NULL;
 	
@@ -28,12 +28,12 @@ GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char
 	cout << "All done!\n";
 }
 
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, char **asphere, int nSubj, int deg, char *coeffLog, int nProperties, int maxIter)
+GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, char **asphere, int nSubj, const float *weight, int deg, char *coeffLog, int nProperties, int maxIter)
 {
 	m_maxIter = maxIter;
 	m_nSubj = nSubj;
 	m_minscore = FLT_MAX;
-	init(sphere, tmpDepth, subjDepth, coeff, correspondence, asphere, nSubj, deg, nProperties);
+	init(sphere, tmpDepth, subjDepth, coeff, correspondence, asphere, nSubj, weight, deg, nProperties);
 	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
 	else m_clfp = NULL;
 	
@@ -55,20 +55,19 @@ GroupwiseRegistration::~GroupwiseRegistration(void)
 	delete [] m_sdevDepth;
 }
 
-void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **asphere, int nSubj, int deg, int nProperties, bool propLoc, char *tmpSurf, char **surf)
+void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **asphere, int nSubj, const float *weight, int deg, int nProperties, float propLoc, char *tmpSurf, char **surf)
 {
 	// unit sphere information
 	cout << "Loading unit sphere information..\n";
 	m_sphere = new Mesh();
 	m_sphere->openFile(sphere);
-
+	
 	m_coeff_fn = coeff;
 	m_spharm = new spharm[nSubj];
 	m_entropy = new entropy[m_sphere->nFace()];
-
 	int nDepth = m_sphere->nVertex();
-	Mesh *tSurf;
-	if (propLoc)
+	Mesh *tSurf = NULL;
+	if (propLoc != 0)
 	{
 		nProperties += 3;
 		if (tmpSurf != NULL)
@@ -78,6 +77,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 			tSurf->openFile(tmpSurf);
 		}
 	}
+	
 	m_depth = new float[nDepth * nProperties];
 	m_meanDepth = new float[nProperties];
 	m_maxDepth = new float[nProperties];
@@ -89,7 +89,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 	int count = 0;
 	for (int n = 0; n < nProperties; n++)
 	{
-		if (n >= nProperties - 3 && propLoc && tmpSurf != NULL)
+		if (n >= nProperties - 3 && propLoc != 0 && tmpSurf != NULL)
 		{
 			for (int i = 0; i < nDepth; i++)
 			{
@@ -217,7 +217,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		if (asphere != NULL) m_spharm[subj].sphere->openFile(asphere[subj]);
 		else m_spharm[subj].sphere->openFile(sphere);
 		
-		if (propLoc)
+		if (propLoc != 0)
 		{
 			m_spharm[subj].surf = new Mesh();
 			m_spharm[subj].surf->openFile(surf[subj]);
@@ -254,7 +254,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		count = 0;
 		for (int n = 0; n < nProperties; n++)
 		{
-			if (n >= nProperties - 3 && propLoc)
+			if (n >= nProperties - 3 && propLoc != 0)
 			{
 				for (int i = 0; i < nDepth; i++)
 				{
@@ -336,9 +336,21 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 		m_nEdges += m_spharm[i].sphere->nVertex();
 	}
 	
-	for (int n = 0; n < nProperties; n++)
-		for (int i = 0; i < depth; i++)
-			m_cov_weight[n * depth + i] = 1.0f;
+	if (propLoc == 0)
+	{
+		for (int n = 0; n < nProperties; n++)
+			for (int i = 0; i < depth; i++)
+				m_cov_weight[n * depth + i] = weight[n];
+	}
+	else
+	{
+		for (int n = 0; n < nProperties - 3; n++)
+			for (int i = 0; i < depth; i++)
+				m_cov_weight[n * depth + i] = weight[n];
+		for (int n = nProperties - 3; n < nProperties; n++)
+			for (int i = 0; i < depth; i++)
+				m_cov_weight[n * depth + i] = propLoc;
+	}
 
 	m_cov_depth = new float[nSubj + 1];
 	m_cov_eig = new float[(nSubj + 1) * (nSubj + 1)];
@@ -366,7 +378,7 @@ void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **sub
 	cout << "Initialization done\n";
 }
 
-void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, char **asphere, int nSubj, int deg, int nProperties, bool propLoc, char *tmpSurf, char **surf)
+void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, char **asphere, int nSubj, const float *weight, int deg, int nProperties, float propLoc, char *tmpSurf, char **surf)
 {
 	// unit sphere information
 	cout << "Loading unit sphere information..\n";
@@ -378,8 +390,8 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 	m_entropy = new entropy[m_sphere->nFace()];
 
 	int nDepth = m_sphere->nVertex();
-	Mesh *tSurf;
-	if (propLoc)
+	Mesh *tSurf = NULL;
+	if (propLoc != 0)
 	{
 		nProperties += 3;
 		if (tmpSurf != NULL)
@@ -399,7 +411,7 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 	int count = 0;
 	for (int n = 0; n < nProperties; n++)
 	{
-		if (n >= nProperties - 3 && propLoc && tmpSurf != NULL)
+		if (n >= nProperties - 3 && propLoc != 0 && tmpSurf != NULL)
 		{
 			for (int i = 0; i < nDepth; i++)
 			{
@@ -526,7 +538,7 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 		if (asphere != NULL) m_spharm[subj].sphere->openFile(asphere[subj]);
 		else m_spharm[subj].sphere->openFile(sphere);
 
-		if (propLoc)
+		if (propLoc != 0)
 		{
 			m_spharm[subj].surf = new Mesh();
 			m_spharm[subj].surf->openFile(surf[subj]);
@@ -566,7 +578,7 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 		count = 0;
 		for (int n = 0; n < nProperties; n++)
 		{
-			if (n >= nProperties - 3 && propLoc)
+			if (n >= nProperties - 3 && propLoc != 0)
 			{
 				for (int i = 0; i < nDepth; i++)
 				{
@@ -677,7 +689,21 @@ void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth
 	if (w == 0) w = 1;
 	//float w = 1.0f;
 	for (int i = 0; i < landmark; i++) m_cov_weight[i] = w;
-	for (int i = 0; i < depth * nProperties; i++) m_cov_weight[landmark + i] = 1.0f;
+	if (propLoc == 0)
+	{
+		for (int n = 0; n < nProperties; n++)
+			for (int i = 0; i < depth; i++)
+				m_cov_weight[landmark + n * depth + i] = weight[n];
+	}
+	else
+	{
+		for (int n = 0; n < nProperties - 3; n++)
+			for (int i = 0; i < depth; i++)
+				m_cov_weight[landmark + n * depth + i] = weight[n];
+		for (int n = nProperties - 3; n < nProperties; n++)
+			for (int i = 0; i < depth; i++)
+				m_cov_weight[landmark + n * depth + i] = propLoc;
+	}
 	
 	cout << "regularized weight: " << w << " " << (depth * nProperties) << "/" << landmark << endl;
 

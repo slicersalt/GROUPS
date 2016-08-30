@@ -8,7 +8,6 @@ find_package(SlicerExecutionModel REQUIRED)
 
 include(${SlicerExecutionModel_USE_FILE})
 include(${GenerateCLP_USE_FILE})
-include_directories(/System/Library/Frameworks/Accelerate.framework/Headers)
 include_directories(Mesh GroupwiseRegistration)
 include_directories( ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR} )
 
@@ -18,7 +17,7 @@ generateCLP(GRTestProject_SRC wrapper/GRTestProject.xml)
 # MESH library
 set(MESH_LIB_DIR /NIRAL/work/ilwoolyu/MeshLib)
 include_directories(${MESH_LIB_DIR}/include ${MESH_LIB_DIR}/include/Util)
-link_directories(${MESH_LIB_DIR}/res)
+link_directories(${MESH_LIB_DIR}/lib)
 
 set (Registration_SOURCES src/GroupwiseRegistration.cpp)
 include_directories(src)
