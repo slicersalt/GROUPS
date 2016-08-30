@@ -310,7 +310,7 @@ int main(int argc , char* argv[])
 	}
 	else
 	{
-		for (int i = 0; i < weight.size(); i++)
+		for (int i = 0; i < extSize; i++)
 			w[i] = 1;
 	}
 	cout << "Weighting Factors\n";
