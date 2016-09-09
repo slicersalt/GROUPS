@@ -1,336 +1,172 @@
-#include <iostream>
-#include <fstream>
+/*************************************************
+ *	main.cpp
+ *
+ *	Release: Sep 2016
+ *	Update: Sep 2016
+ *
+ *	University of North Carolina at Chapel Hill
+ *	Department of Computer Science
+ *
+ *	Ilwoo Lyu, ilwoolyu@cs.unc.edu
+ *************************************************/
+
+#include <cstdlib>
 #include <vector>
 #include <string>
 #include <dirent.h>
-#include "GroupsCLP.h"
-#include <sstream>
+#include "GroupwiseRegistrationCLP.h"
 #include "GroupwiseRegistration.h"
 
-const char * VTKSUFFIX = ".vtk";
-const char * TXTSUFFIX = ".txt";
-const char * COEFFSUFFIX = ".coef";
-
-std::vector<std::string> openDirectory (std::string path)
+void getListFile(string path, vector<string> &list, const string &suffix)
 {
-	DIR* dir;
-	dirent* pdir;
-	std::vector<std::string> files;
-
-	dir = opendir(path.c_str());
-
-	while(pdir = readdir(dir)) {
-	  files.push_back(std::string(pdir->d_name));
-	}
-	return files;
+    DIR *dir = opendir(path.c_str());
+    if (dir != NULL)
+    {
+        while (dirent *entry = readdir(dir))
+        {
+            string filename = entry->d_name;
+            if (filename.size() >= suffix.size() && equal(suffix.rbegin(), suffix.rend(), filename.rbegin()))
+            list.push_back(path + "/" + filename);
+        }
+    }
+    closedir(dir);
+    sort(list.begin(), list.begin() + list.size());
 }
 
-std::string removePathAndSuffix(std::string fileName){
-	std::string fileWithoutPath = fileName.substr(fileName.find_last_of("/")+1, fileName.size());
-	fileWithoutPath = fileWithoutPath.substr(0, fileWithoutPath.find("."));
-	return fileWithoutPath;
-}
-
-bool checkPropList(std::string propDirPath, std::string fileName){
-	std::vector<std::string> propDirList;
-	propDirList = openDirectory(propDirPath);
-	bool hasProp = false;
-	for(int i = 0; i < propDirList.size(); i++){
-		if(propDirList[i].find(fileName) != std::string::npos)
-			hasProp = true;
-	}
-	return hasProp;
-}
-
-std::vector<std::string> sortSurfFiles (std::string surfPath, std::string propPath, std::string ID){
-	
-	std::vector<std::string> directoryFileList;
-	directoryFileList = openDirectory(surfPath);
-	std::vector<std::string> sortedFileList;
-	std::string absPathFileName;
-	int substring;
-//	std::vector<std::string>::iterator it;
-	if (directoryFileList.size() > 0) {
-		bool doesHaveProp = false;
-		for (int listIndex = 0; listIndex < directoryFileList.size(); listIndex++) {
-			std::string currentString = directoryFileList[listIndex];
-//			it = directoryFileList.begin() + listIndex;
-			absPathFileName = surfPath;
-			substring = currentString.find(ID);
-		  	if (substring != std::string::npos) {
-				absPathFileName = absPathFileName + "/" + currentString;
-		    	sortedFileList.push_back(absPathFileName);
-				doesHaveProp = checkPropList(propPath, currentString);
-				if(!doesHaveProp){
-					std::cout << "\nWARNING: PROPERTIES FOR " <<currentString<< " DO NOT EXIST. IT HAS BEEN REMOVED\n" << std::endl ;
-					sortedFileList.erase(sortedFileList.begin() + listIndex);
-				}
-		  	}
-		}
-	}
-	std::sort(sortedFileList.begin(), sortedFileList.end());
-	return sortedFileList;
-}
-std::vector<std::string> sortFiles (std::string path, std::string ID){
-	
-	std::vector<std::string> directoryFileList;
-	directoryFileList = openDirectory(path);
-	std::vector<std::string> sortedFileList;
-	std::string absPathFileName;
-	int substring;
-//	std::vector<std::string>::iterator it;
-	if (directoryFileList.size() > 0) {
-		for (int listIndex = 0; listIndex < directoryFileList.size(); listIndex++) {
-			std::string currentString = directoryFileList[listIndex];
-//			it = directoryFileList.begin() + listIndex;
-			absPathFileName = path;
-			substring = currentString.find(ID);
-		  	if (substring != std::string::npos) {
-				absPathFileName = absPathFileName + "/" + currentString;
-		    		sortedFileList.push_back(absPathFileName);
-		  	}
-		}
-	}
-	std::sort(sortedFileList.begin(), sortedFileList.end());
-	return sortedFileList;
-}
-
-std::vector<std::string> setOutputFiles (std::vector<std::string> surfFiles, std::string outPath, std::string ext, std::string coeff){
-	std::vector<std::string> outFiles;
-	std::string surfFileName;
-	std::string outFileName;
-	for(int i = 0; i < surfFiles.size(); i++){
-		surfFileName = removePathAndSuffix(surfFiles[i]);
-		outFileName = outPath + "/" + surfFileName + coeff + ext;
-		outFiles.push_back(outFileName);
-	}
-	return outFiles;
-}
-
-std::vector<std::string> sortFiles (std::vector<std::string> list, std::string ID){
-	
-	std::vector<std::string> sortedFileList;
-
-	if (list.size() > 0) {
-		for (int listIndex = 0; listIndex < list.size(); listIndex++) {
-			std::string currentString = list[listIndex];
-			int substring = currentString.find(ID);
-		  	if (substring != std::string::npos) {
-		    		sortedFileList.push_back(currentString);
-		  	}
-		}
-	}
-	std::sort(sortedFileList.begin(), sortedFileList.end());
-	return sortedFileList;
-}
-
-char **putFilesInCharList (std::vector<std::string> files, int size){
-	char **fileList = NULL;
-	fileList = (char **) malloc(sizeof(char *) * size);
-	for (int i = 0; i < size; i++)
-		fileList[i] = (char *)malloc(sizeof(char) * 1024);
-	for (int i = 0; i < size; i++)
-		strcpy(fileList[i], files[i].c_str());
-	return fileList;
-}
-
-int main(int argc , char* argv[])
+void getTrimmedList(vector<string> &list, const vector<string> &name)
 {
-	PARSE_ARGS;
-	
-	std::vector<std::string> tempPropFiles;
-	std::vector<std::string> extList;
-	std::vector<std::string> extSpecifiedTempPropList ;
-	std::vector<std::string> extSpecifiedTempPropFiles ;
-	std::string ext;
-	
-	int tempSize = tempPropFiles.size();
-	extList = extensions;
-	int extSize = extList.size();
-	std::ostringstream ss0 ;
-	ss0 << tempDir ;
-	std::string tempDirString = ss0.str() ;
-	char **tempProp;
-	if(!tempDirString.empty()){
-		for(int i = 0; i < extSize; i++){				//filters based on desired ext
-			extSpecifiedTempPropList = sortFiles(tempDir, extList[i]);
-			for(int j = 0; j < extSpecifiedTempPropList.size(); j++){
-				extSpecifiedTempPropFiles.push_back(extSpecifiedTempPropList[j]);
-			}
-		}
-		int extTempPropSize = extSpecifiedTempPropFiles.size();
-		tempProp = putFilesInCharList(extSpecifiedTempPropFiles, extTempPropSize);
-		std::cout<<"Template model properties: "<< tempDir << std::endl ;
-		for(int i = 0; i < extTempPropSize; i++){
-			std::cout<< "	" << tempProp[i] << ' ' << std::endl ;
-		}
-	}	
-	else{
-		std::cout << "Warning: No input for '-t'." << std::endl ;
-		tempProp = NULL;
-	}
-	
-	char *sph = (char *) sphere.c_str();
-	char *log = (char *) logfile.c_str();
-	if(logfile.empty()) log = NULL;
+    int i = 0;
+    while (i < list.size())
+    {
+        size_t found;
+        for (int j = 0; j < name.size(); j++)
+        {
+            found = list[i].find(name[j].substr(name[j].rfind('/') + 1));
+            if (string::npos != found) break;
+        }
+        if (string::npos == found) list.erase(list.begin() + i);
+        else i++;
+    }
+    sort(list.begin(), list.begin() + list.size());
+}
 
- 	std::cout<<"Sphere: " << sph << std::endl ;
-	std::cout<<"Degree: " << degree << std::endl ;
-	std::cout<<"Logfile: " << logfile << std::endl ;
- 	std::cout<<"Max Iterations: " << maxIter << std::endl ;
- 	std::cout<<"addLoc: " << addLoc << std::endl ;
- 	std::cout<<"Temp Surf: " << tempSurface << std::endl ;
-	std::vector<std::string> surfaceFiles, coefficientFiles, allPropertyFiles, extSpecifiedPropFiles, landmarkFiles, asphereFiles, outputFiles;
-	
-//Handling of Surface directory**********************************************************
-
-	std::ostringstream ss ;
-	ss << surfDir ;
-	std::string surfDirString = ss.str() ;
-	std::ostringstream ss1 ;
-	ss1 << propDir ;
-	std::string propDirString = ss1.str() ;
-	char **surfFileList;
-	int surfSize;
-	if(!surfDirString.empty()){
-		if(!propDirString.empty()){
-			surfaceFiles = sortSurfFiles(surfDir, propDir, VTKSUFFIX);
-			surfSize = surfaceFiles.size();
-			surfFileList = putFilesInCharList(surfaceFiles, surfSize);
-			std::cout<<"Surface Directory: "<< surfDir << std::endl ;
-			for(int i = 0; i < surfSize; i++)
-			std::cout<< "	" << surfFileList[i] << ' ' << std::endl ;
-		}
-		else
-		{
-			surfSize = 0;
-			surfFileList = NULL;
-			std::cout << "Warning: No input for '-p'." << std::endl ;
-		}
-	}
-	else
-		surfFileList = NULL;
-
-//Handling of Property directory**********************************************************
-
-	std::string surfFileWithoutPath;
-	std::vector<std::string> foundPropFiles ;
-	char **propFileList;
-	if(!propDirString.empty()){
-		for(int i = 0; i < surfSize; i++){				//puts all props w/corresponding surf in surfFileList
-			surfFileWithoutPath = removePathAndSuffix(surfFileList[i]);
-			foundPropFiles = sortFiles(propDir, surfFileWithoutPath);
-			for(int j = 0; j < foundPropFiles.size(); j++)
-				allPropertyFiles.push_back(foundPropFiles[j]);
-		}
-		std::vector<std::string> extSpecifiedPropList ;
-		for(int i = 0; i < extSize; i++){				//filters props based on desired ext
-			extSpecifiedPropList = sortFiles(allPropertyFiles, extList[i]);
-			for(int j = 0; j < extSpecifiedPropList.size(); j++){
-			extSpecifiedPropFiles.push_back(extSpecifiedPropList[j]);
-			}
-		}
-		int extPropSize = extSpecifiedPropFiles.size();
-		int newExtPropSize = extSpecifiedPropFiles.size();
-		propFileList = putFilesInCharList(extSpecifiedPropFiles, newExtPropSize);
-		std::cout<<"Property Directory: "<< propDir << std::endl ;
-		for(int i = 0; i < newExtPropSize; i++){
-			std::cout<< "	" << propFileList[i] << ' ' << std::endl ;
-		}
-	}
-	else
-		propFileList = NULL;
-
-//Handling of Coefficient directory********************************************************
-	
-	std::ostringstream ss2 ;
-	ss2 << spharmDir ;
-	std::string spharmDirString = ss2.str() ;
-	char **coeffFileList;
-	if(!spharmDirString.empty()){
-		coefficientFiles = sortFiles(spharmDir, COEFFSUFFIX);
-		int coeffSize = coefficientFiles.size();
-		coeffFileList = putFilesInCharList(coefficientFiles, coeffSize);
-		std::cout<<"Coefficient Directory: "<< spharmDir << std::endl ;
-		for(int i = 0; i < coeffSize; i++)
-			std::cout<< "	" << coeffFileList[i] << ' ' << std::endl ;
-	}
-	else
-		coeffFileList = NULL;
-
-//Output Directory*************************************************************************
-	
-	outputFiles = setOutputFiles(surfaceFiles, outputDir, TXTSUFFIX, ".coeff");
-	int outSize = outputFiles.size();
-	char **outFileList = putFilesInCharList(outputFiles, outSize);
-	std::cout << "Output Directory: " << outputDir << std::endl ;
-	for(int i = 0; i < outSize; i++){
-		std::cout << "	" << outFileList[i] << ' ' << std::endl ;
-	}
-	
-	char *tempSurf = NULL;
-	if (tempSurface.length() > 0)
-	{
-		tempSurf = new char[tempSurface.length() + 1];
-		std::strcpy(tempSurf, tempSurface.c_str());
-	}
-	
-	// landmark directory
-	char **landmark = NULL;
-	if(!lmDir.empty()){
-		landmarkFiles = sortFiles(lmDir, TXTSUFFIX);
-		int lmSize = landmarkFiles.size();
-		landmark = putFilesInCharList(landmarkFiles, lmSize);
-		std::cout<<"Landmark Directory: "<< lmDir << std::endl ;
-		for(int i = 0; i < lmSize; i++)
-			std::cout<< "	" << landmark[i] << ' ' << std::endl ;
-	}
-	
-	// aligned sphere directory
-	char **alignedSphere = NULL;
-	if(!asphereDir.empty()){
-		asphereFiles = sortFiles(asphereDir, TXTSUFFIX);
-		int asphereSize = asphereFiles.size();
-		alignedSphere = putFilesInCharList(asphereFiles, asphereSize);
-		std::cout<<"Alinged Sphere Directory: "<< asphereDir << std::endl ;
-		for(int i = 0; i < asphereSize; i++)
-			std::cout<< "	" << alignedSphere[i] << ' ' << std::endl ;
-	}
-	
-	float *w = new float[extSize];
-	if (!weight.empty())
-	{
-		if (weight.size() != extSize)
-		{
-			cout << "# of the weighting factors is not matched to # of the properties" << endl;
-			return 1;
-		}
-		for (int i = 0; i < weight.size(); i++)
-			w[i] = weight[i];
-	}
-	else
-	{
-		for (int i = 0; i < extSize; i++)
-			w[i] = 1;
-	}
-	cout << "Weighting Factors\n";
-	for (int i = 0; i < weight.size(); i++)
-	{
-		cout << extensions[i] << " - " << w[i] << endl;
-	}
-	if (addLoc != 0)
-		cout << "Spatial weighting factor: " << addLoc << endl;
-
-// Call main procedure
-	// char *sphere, char **tmpDepth, char **subjDepth, int nSubj, int deg, int nProperties, char *coeffLog, char **coeff
-	GroupwiseRegistration *r = new GroupwiseRegistration(sph, tempProp, propFileList, surfSize, landmark, alignedSphere, w, degree, extSize, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter, outFileList);
-	//GroupwiseRegistration *r = new GroupwiseRegistration(sph, NULL, NULL, surfSize, degree, 0, addLoc, tempSurf, surfFileList, log, coeffFileList, maxIter);	// location only
-	
-	for (int i = 0; i < outSize; i++)
-	{
-		r->saveLCoeff(outFileList[i], i);
-	}
-	
-	return 0 ;
-	
-}//end of main
+int main(int argc, char *argv[])
+{
+    PARSE_ARGS;
+    
+    if (argc == 1)
+    {
+        cout << "Usage: " << argv[0] << " --help" << endl;
+        return EXIT_SUCCESS;
+    }
+    
+    // update list files from the directory information
+    if (!dirSphere.empty() && listSphere.empty()) getListFile(dirSphere, listSphere, "vtk");// listSphere.erase(listSphere.begin() + 30, listSphere.begin() + listSphere.size());
+    if (!dirProperty.empty() && listProperty.empty()) getListFile(dirProperty, listProperty, "txt");
+    if (!dirSurf.empty() && listSurf.empty()) getListFile(dirSurf, listSurf, "vtk");
+    if (!dirLandmark.empty() && listLandmark.empty()) getListFile(dirLandmark, listLandmark, "txt");
+    if (!dirCoeff.empty() && listCoeff.empty()) getListFile(dirCoeff, listCoeff, "coeff");
+    
+    // subject names
+    int nSubj = listSphere.size();
+    vector<string> subjName;
+    if (nSubj > 0)
+    {
+        for (int i = 0; i < nSubj; i++)
+        {
+            int pivot = listSphere[i].rfind('/') + 1;
+            string name = listSphere[i].substr(pivot, listSphere[i].length() - 4 - pivot);
+            pivot = name.find('.');
+            if (pivot == string::npos) pivot = name.length();
+            subjName.push_back(name.substr(0, pivot));
+        }
+    }
+    //for (int i = 0; i < nSubj; i++) cout << subjName[i] << endl;
+    if (listOutput.empty())
+    for (int i = 0; i < nSubj; i++) listOutput.push_back(dirOutput + "/" + subjName[i] + ".coeff");
+    
+    // trim all irrelevant files to the sphere files
+    if (!dirProperty.empty()) getTrimmedList(listProperty, subjName);
+    if (!dirLandmark.empty()) getTrimmedList(listLandmark, subjName);
+    if (!dirCoeff.empty()) getTrimmedList(listCoeff, subjName);
+    if (!dirProperty.empty()) getTrimmedList(listProperty, listFilter);
+    if (listWeight.empty())
+    for (int i = 0; i < listProperty.size() / nSubj; i++)
+    listWeight.push_back(1);
+    
+    int nProperties = listProperty.size();
+    int nOutput = listOutput.size();
+    int nWeight = listWeight.size();
+    int nLandmark = listLandmark.size();
+    int nCoeff = listCoeff.size();
+    int nSurf = listSurf.size();
+    
+    const char **property = NULL;
+    const char **sphere = NULL;
+    const char **output = NULL;
+    const char **landmark = NULL;
+    const char **coeff = NULL;
+    const char **surf = NULL;
+    
+    if (nProperties > 0) property = new const char*[nProperties];
+    if (nSubj > 0) sphere = new const char*[nSubj];
+    if (nOutput > 0) output = new const char*[nOutput];
+    if (nLandmark > 0) landmark = new const char*[nLandmark];
+    if (nCoeff > 0) coeff = new const char*[nCoeff];
+    if (nSurf > 0) surf = new const char*[nSurf];
+    if (surf == NULL) weightLoc = 0;
+    float *weight = new float[nWeight];
+    
+    // exception handling
+    if (nSubj == 0)
+    {
+        cout << "Fatal error: no subject is provided!" << endl;
+        return EXIT_FAILURE;
+    }
+    else if (nSubj != nOutput)
+    {
+        cout << "Fatal error: # of subjects is incosistent with # of outputs!" << endl;
+        return EXIT_FAILURE;
+    }
+    else if (nLandmark == 0 && nProperties == 0)
+    {
+        cout << "Fatal error: neither landmarks nor properties are provided!" << endl;
+        return EXIT_FAILURE;
+    }
+    else if (nProperties / nSubj != nWeight)
+    {
+        cout << "Fatal error: # of properties is incosistent with # of weighting factors!" << endl;
+        return EXIT_FAILURE;
+    }
+    
+    for (int i = 0; i < nSubj; i++) sphere[i] = listSphere[i].c_str();
+    for (int i = 0; i < nProperties; i++) property[i] = listProperty[i].c_str();
+    for (int i = 0; i < nOutput; i++) output[i] = listOutput[i].c_str();
+    for (int i = 0; i < nLandmark; i++) landmark[i] = listLandmark[i].c_str();
+    for (int i = 0; i < nCoeff; i++) coeff[i] = listCoeff[i].c_str();
+    for (int i = 0; i < nSurf; i++) surf[i] = listSurf[i].c_str();
+    for (int i = 0; i < nWeight; i++) weight[i] = listWeight[i];
+    if (nWeight == 0) for (int i = 0; i < nProperties / nSubj; i++) weight[i] = 1;
+    
+    // display for lists of files
+    cout << "Property: " << nProperties / nSubj << endl;	for (int i = 0; i < nProperties; i++) cout << property[i] << endl;
+    cout << "Sphere: " << nSubj << endl;					for (int i = 0; i < nSubj; i++) cout << sphere[i] << endl;
+    cout << "Output: " << nOutput << endl;					for (int i = 0; i < nOutput; i++) cout << output[i] << endl;
+    cout << "Landmark: " << nLandmark << endl;				for (int i = 0; i < nLandmark; i++) cout << landmark[i] << endl;
+    cout << "Coefficient: " << nCoeff << endl;				for (int i = 0; i < nCoeff; i++) cout << coeff[i] << endl;
+    cout << "Surface: " << nSurf << endl;					for (int i = 0; i < nSurf; i++) cout << surf[i] << endl;
+    
+    GroupwiseRegistration groups(sphere, nSubj, property, nProperties / nSubj, output, weight, degree, landmark, weightLoc, coeff, surf, maxIter);
+    groups.run();
+    
+    // delete memory allocation
+    delete [] property;
+    delete [] sphere;
+    delete [] output;
+    delete [] landmark;
+    delete [] coeff;
+    delete [] surf;
+    delete [] weight;
+    
+    return EXIT_SUCCESS;
+}
