@@ -14,7 +14,7 @@
 #include <float.h>
 #include "GroupwiseRegistration.h"
 #include "SphericalHarmonics.h"
-#include "lapack/lapacke.h"
+#include <lapacke.h>
 #include "newuoa.h"
 
 GroupwiseRegistration::GroupwiseRegistration(void)

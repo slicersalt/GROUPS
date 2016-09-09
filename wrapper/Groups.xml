@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+<title>Groups</title>
+<version>1.0</version>
+<contributor>Ilwoo Lyu and Hamid Ali</contributor>
+<description>Landmarks should be given as a list of vertex indices</description>
+	<parameters>
+		<string>
+			<longflag>sphere</longflag>
+			<flag>s</flag>
+			<name>sphere</name>
+			<description>Spherical subdivision level</description>
+	     </string>
+		<directory>
+			<longflag>tempDir</longflag>
+			<flag>t</flag>
+			<name>tempDir</name>
+			<description>Path to directory containing properties of template model</description>
+		</directory>
+		<integer>
+			<longflag>degree</longflag>
+			<flag>d</flag>
+			<name>degree</name>
+			<description></description>	
+			<label></label>
+		</integer>
+		<string>
+			<longflag>logFile</longflag>
+			<name>logfile</name>
+		</string>
+		<integer>
+			<longflag>maxIter</longflag>
+			<flag>r</flag>
+			<name>maxIter</name>
+		</integer>
+		<float>
+			<longflag>addLocFactor</longflag>
+			<flag>a</flag>
+			<name>addLoc</name>
+			<default>0</default>
+		</float>
+		<directory>
+			<longflag>surfDir</longflag>
+			<flag>i</flag>
+			<name>surfDir</name>
+			<description>Path to directory with subject surface files</description>
+		</directory>
+		<directory>
+			<longflag>spharmDir</longflag>
+			<flag>c</flag>
+			<name>spharmDir</name>
+			<description>Path to SPHARM-PDM (coefficients) directory</description>
+		</directory>
+		<directory>
+			<longflag>propDir</longflag>
+			<flag>p</flag>
+			<name>propDir</name>
+			<description>Path to property directory</description>
+		</directory>
+		<directory>
+			<longflag>landmark</longflag>
+			<flag>l</flag>
+			<name>lmDir</name>
+			<description>Path to landmark directory</description>
+		</directory>
+		<directory>
+			<longflag>alignedSphere</longflag>
+			<name>asphereDir</name>
+			<description>Path to aligned sphere directory</description>
+		</directory>
+		<directory>
+			<longflag>mapDir</longflag>
+			<flag>m</flag>
+			<name>mapDir</name>
+			<description>Path to map directory</description>
+		</directory>
+		<directory>
+			<longflag>extDir</longflag>
+			<flag>e</flag>
+			<name>extDir</name>
+			<description>Path to list of desired extensions</description>
+		</directory>
+		<directory>
+			<longflag>outputDir</longflag>
+			<flag>o</flag>
+			<name>outputDir</name>
+		</directory>
+		<file>
+			<longflag>ts</longflag>
+			<flag>f</flag>
+			<name>tempSurface</name>
+		</file>
+		<string-vector>
+			<longflag>extensions</longflag>
+			<flag>x</flag>
+			<name>extensions</name>
+			<description>List of desired property extensions</description>
+		</string-vector>
+		<float-vector>
+			<longflag>weight</longflag>
+			<flag>w</flag>
+			<name>weight</name>
+			<description>List of weighting factors corresponding to properties</description>
+		</float-vector>
+  	</parameters>
+</executable>
