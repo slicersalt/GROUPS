@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+<title>Group-wise Registration for Shape Correspondence (Groups)</title>
+<version>1.0</version>
+<contributor>Ilwoo Lyu</contributor>
+<description>Refer to the following papers for details - Lyu et al. IPMI 2013, Lyu et al. Frontiers in Neuroscience 2015</description>
+	<parameters>
+		<directory>
+			<longflag>propertyDir</longflag>
+			<name>dirProperty</name>
+			<description>provides a directory of property files</description>
+		</directory>
+		<directory>
+			<longflag>sphereDir</longflag>
+			<name>dirSphere</name>
+			<description>provides a directory of sphere files</description>
+		</directory>
+		<directory>
+			<longflag>outputDir</longflag>
+			<name>dirOutput</name>
+			<description>provides a directory of output files</description>
+		</directory>
+		<directory>
+			<longflag>landmarkDir</longflag>
+			<name>dirLandmark</name>
+			<description>provides a directory of landmark files</description>
+		</directory>
+		<directory>
+			<longflag>coefficientDir</longflag>
+			<name>dirCoeff</name>
+			<description>provides a directory of previous spherical harmonics coefficient files</description>
+		</directory>
+		<directory>
+			<longflag>surfaceDir</longflag>
+			<name>dirSurf</name>
+			<description>provides a directory of surface model files for location information</description>
+		</directory>
+		<string-vector>
+			<longflag>property</longflag>
+			<flag>p</flag>
+			<name>listProperty</name>
+			<description>provides a list of property files</description>
+		</string-vector>
+		<string-vector>
+			<longflag>sphere</longflag>
+			<flag>s</flag>
+			<name>listSphere</name>
+			<description>provides a list of sphere files</description>
+		</string-vector>
+		<string-vector>
+			<longflag>output</longflag>
+			<flag>o</flag>
+			<name>listOutput</name>
+			<description>provides a list of output files</description>
+		</string-vector>
+		<string-vector>
+			<longflag>landmark</longflag>
+			<flag>l</flag>
+			<name>listLandmark</name>
+			<description>provides a list of landmark files</description>
+		</string-vector>
+		<string-vector>
+			<longflag>coefficient</longflag>
+			<flag>c</flag>
+			<name>listCoeff</name>
+			<description>provides a list of previous spherical harmonics coefficient files</description>
+		</string-vector>
+		<string-vector>
+			<longflag>surface</longflag>
+			<name>listSurf</name>
+			<description>provides a list of surface model files for location information</description>
+		</string-vector>
+		<float-vector>
+			<longflag>weight</longflag>
+			<flag>w</flag>
+			<name>listWeight</name>
+			<description>provides a list of output files</description>
+		</float-vector>
+		<integer>
+			<longflag>degree</longflag>
+			<flag>d</flag>
+			<name>degree</name>
+			<default>5</default>
+			<description>provides a degree of spherical harmonics decomposition</description>
+		</integer>
+		<integer>
+			<longflag>maxIter</longflag>
+			<name>maxIter</name>
+			<default>10000</default>
+			<description>provides the maxmum number of iterations</description>
+		</integer>
+		<float>
+			<longflag>locationWeight</longflag>
+			<name>weightLoc</name>
+			<description>provides a weighting factor of location information</description>
+			<default>0</default>
+	     </float>
+	     <string-vector>
+	     	<longflag>filter</longflag>
+	     	<name>listFilter</name>
+	     	<description>provides a list of suffix filters to select desired property files</description>
+	     </string-vector>
+  	</parameters>
+</executable>
