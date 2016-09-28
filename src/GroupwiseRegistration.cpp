@@ -459,7 +459,7 @@ void GroupwiseRegistration::updateLandmarkMedian(void)
 	
 	// m-estimator
 	float m1 = 0.03 * 0.01;
-    float m2 = 16.8 * 0.01;
+	float m2 = 16.8 * 0.01;
 	float u = (m2 + m1) / 2;
 	float sigma = ((m2 + m1) / 2 - m1) / 3;
 
@@ -722,23 +722,23 @@ int GroupwiseRegistration::icosahedron(int degree)
 	vector<Vector> vertices;
 
 	float t = (1 + sqrt(5.0)) / 2.0;
-    float s = sqrt(1 + t * t);
+	float s = sqrt(1 + t * t);
 
     // create the 12 vertices
-    Vector v0 = Vector(t, 1.0, 0.0) / s;
-    Vector v1 = Vector(-t, 1.0, 0.0) / s;
-    Vector v2 = Vector(t, -1.0, 0.0) / s;
-    Vector v3 = Vector(-t, -1.0, 0.0) / s;
-    Vector v4 = Vector(1.0, 0.0, t) / s;
-    Vector v5 = Vector(1.0, 0.0, -t) / s;
-    Vector v6 = Vector(-1.0, 0.0, t) / s;
-    Vector v7 = Vector(-1.0, 0.0, -t) / s;
-    Vector v8 = Vector(0.0, t, 1.0) / s;
-    Vector v9 = Vector(0.0, -t, 1.0) / s;
-    Vector v10 = Vector(0.0, t, -1.0) / s;
-    Vector v11 = Vector(0.0, -t, -1.0) / s;
+	Vector v0 = Vector(t, 1.0, 0.0) / s;
+	Vector v1 = Vector(-t, 1.0, 0.0) / s;
+	Vector v2 = Vector(t, -1.0, 0.0) / s;
+	Vector v3 = Vector(-t, -1.0, 0.0) / s;
+	Vector v4 = Vector(1.0, 0.0, t) / s;
+	Vector v5 = Vector(1.0, 0.0, -t) / s;
+	Vector v6 = Vector(-1.0, 0.0, t) / s;
+	Vector v7 = Vector(-1.0, 0.0, -t) / s;
+	Vector v8 = Vector(0.0, t, 1.0) / s;
+	Vector v9 = Vector(0.0, -t, 1.0) / s;
+	Vector v10 = Vector(0.0, t, -1.0) / s;
+	Vector v11 = Vector(0.0, -t, -1.0) / s;
     
-    // create the 20 triangles
+	// create the 20 triangles
 	Vector *f; 
 	f = new Vector[3]; f[0] = v0; f[1] = v8; f[2] = v4; triangles.push_back(f);
 	f = new Vector[3]; f[0] = v1; f[1] = v10; f[2] = v7; triangles.push_back(f);
