@@ -76,7 +76,7 @@ int main(int argc , char *argv[])
 		{
 			int pivot = listSphere[i].rfind('/') + 1;
 			string name = listSphere[i].substr(pivot, listSphere[i].length() - 4 - pivot);
-			pivot = name.rfind('.');
+			pivot = name.find('.');
 			if (pivot == string::npos) pivot = name.length();
 			subjName.push_back(name.substr(0, pivot));
 		}
@@ -91,7 +91,7 @@ int main(int argc , char *argv[])
 	if (!listCoeff.empty()) getTrimmedList(listCoeff, subjName);
 	if (!listProperty.empty()) getTrimmedList(listProperty, listFilter);
 	if (listWeight.empty())
-		for (int i = 0; i < listProperty.size() / listSurf.size(); i++)
+		for (int i = 0; i < listProperty.size() / nSubj; i++)
 			listWeight.push_back(1);
 	
 	int nProperties = listProperty.size();
@@ -118,7 +118,12 @@ int main(int argc , char *argv[])
 	float *weight = new float[nWeight];
 	
 	// exception handling
-	if (nSubj != nOutput)
+	if (nSubj == 0)
+	{
+		cout << "Fatal error: no subject is provided!" << endl;
+		return EXIT_FAILURE;
+	}
+	else if (nSubj != nOutput)
 	{
 		cout << "Fatal error: # of subjects is incosistent with # of outputs!" << endl;
 		return EXIT_FAILURE;
