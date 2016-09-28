@@ -356,7 +356,7 @@ void GroupwiseRegistration::initLandmarks(int subj, const char **landmark)
 	fclose(fp);
 }
 
-void GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole)
+bool GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole)
 {
 	// spharm basis
 	int n = (degree + 1) * (degree + 1);
@@ -371,8 +371,22 @@ void GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *
 	if (axis.norm() == 0)	// point == pole
 	{
 		memcpy(v1, v0, sizeof(float) * 3);
-		return;
+		return true;
 	}
+
+	float delta[2] = {0, 0};
+	for (int i = 0; i < n; i++)
+	{
+		delta[0] += Y[i] * *coeff[i];
+		delta[1] += Y[i] * *coeff[(m_degree + 1) * (m_degree + 1) + i];
+	}
+
+	if (delta[0] == 0 && delta[1] == 0)
+	{
+		v1[0] = v0[0]; v1[1] = v0[1]; v1[2] = v0[2];
+		return true;
+	}
+
 	dot = p0 * v;
 	dot = (dot > 1) ? 1: dot;
 	dot = (dot < -1) ? -1: dot;
@@ -388,12 +402,6 @@ void GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *
 	Coordinate::cart2sph(rv, &phi, &theta);
 	
 	// displacement
-	float delta[2] = {0, 0};
-	for (int i = 0; i < n; i++)
-	{
-		delta[0] += Y[i] * *coeff[i];
-		delta[1] += Y[i] * *coeff[n + i];
-	}
 	phi += delta[0];	// longitude (azimuth) change
 	Coordinate::sph2cart(phi, theta, rv);
 	
@@ -409,19 +417,23 @@ void GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *
 
 	// inverse rotation
 	Coordinate::rotPoint(rv, rot, v1);
+	
+	return false;
 }
 
 void GroupwiseRegistration::updateDeformation(int subject)
 {
+	bool updated = true;
 	for (int i = 0; i < m_spharm[subject].vertex.size(); i++)
 	{
 		float v1[3];
-		updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, m_spharm[subject].coeff, m_spharm[subject].degree, m_spharm[subject].pole);
+		//updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, m_spharm[subject].coeff, m_spharm[subject].degree, m_spharm[subject].pole);
+		updated &= updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, m_spharm[subject].coeff, m_degree_inc, m_spharm[subject].pole);	// update only focus on the current incremental degree
 		Vertex *v = (Vertex *)m_spharm[subject].sphere->vertex(i);
 		Vector V(v1); V.unit();
 		v->setVertex(V.fv());
 	}
-	m_updated[subject] = false;
+	m_updated[subject] = updated;
 }
 
 void GroupwiseRegistration::updateLandmark(void)
@@ -559,11 +571,9 @@ void GroupwiseRegistration::updateProperties(void)
 			}
 			for (int k = 0; k < m_nProperties + m_nSurfaceProperties; k++)
 			{
-			
 				m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + nLandmark * 3 + nSamples * k + i] = propertyInterpolation(&m_spharm[subj].property[nVertex * k], fid, coeff, m_spharm[subj].sphere) / m_spharm[subj].sdevProperty[k];
-
-				m_spharm[subj].tree_cache[i] = fid;
 			}
+			m_spharm[subj].tree_cache[i] = fid;
 		}
 	}
 }
@@ -668,6 +678,8 @@ int GroupwiseRegistration::testTriangleFlip(Mesh *mesh, const bool *flip)
 		Vector U = (V2 - V1).cross(V3 - V1);
 
 		if ((V * U < 0 && !flip[i]) || (V * U > 0 && flip[i])) nFolds++;
+		
+		if (nFolds > 0) break;	// do not allow any flips!
 	}
 	return nFolds;
 }
@@ -675,23 +687,22 @@ int GroupwiseRegistration::testTriangleFlip(Mesh *mesh, const bool *flip)
 void GroupwiseRegistration::optimization(void)
 {
 	cost_function costFunc(this);
-	//cout << "var: " << depthVariance() << endl;
 	int prev = 0;
 	//int deg = m_spharm[0].degree;  // for the incremental optimization
-	int deg = 3;	// starting degree for the incremental optimization
+	m_degree_inc = 3;	// starting degree for the incremental optimization
 	int step = 1;
 	
-	int n1 = (deg + 1) * (deg + 1) * m_nSubj * 2;
+	int n1 = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2;
 	int n2 = m_csize * 2 - n1;
 	//memset(&m_coeff[n1], 0, n2 * sizeof(float));
 
-	while (deg < m_degree)
+	while (m_degree_inc < m_degree)
 	{
 		nIter = 0;
-		int n = (deg + 1) * (deg + 1) * m_nSubj * 2 - prev;
+		int n = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2 - prev;
 		min_newuoa(n, &m_coeff[prev], costFunc, 1.0f, 1e-5f, m_maxIter);
-		prev = (deg + 1) * (deg + 1) * m_nSubj * 2;
-		deg = min(deg + step, m_degree);
+		prev = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2;
+		m_degree_inc = min(m_degree_inc + step, m_degree);
 	}
 	
 	// the entire optimization together

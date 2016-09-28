@@ -49,8 +49,8 @@ private:
 	int testTriangleFlip(Mesh *mesh, const bool *flip);
 
 	// deformation field reconstruction
-	void updateCoordinate(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole);
 	void updateDeformation(int subject);
+	bool updateCoordinate(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole);
 	
 private:
 	struct point
@@ -85,6 +85,7 @@ private:
 	int m_nSurfaceProperties;
 	int m_maxIter;
 	int m_degree;
+	int m_degree_inc;	// incremental degree
 	
 	float *m_coeff;
 	bool *m_updated;
