@@ -64,6 +64,7 @@ private:
 	{
 		int degree;
 		float **coeff;
+		float **coeff_prev_step;
 		float pole[3];
 		vector<point *> vertex;
 		AABB *tree;
@@ -88,6 +89,7 @@ private:
 	int m_degree_inc;	// incremental degree
 	
 	float *m_coeff;
+	float *m_coeff_prev_step;	// previous coefficients
 	bool *m_updated;
 	spharm *m_spharm;
 	vector<float *> m_propertySamples;

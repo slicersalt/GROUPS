@@ -26,6 +26,7 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 	m_nSurfaceProperties = 0;
 	m_output = NULL;
 	m_degree = 0;
+	m_degree_inc = 1;	// starting degree for the incremental optimization
 }
 
 GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg, const char **landmark, float weightLoc, const char **coeff, const char **surf, int maxIter)
@@ -37,6 +38,7 @@ GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, con
 	m_nSurfaceProperties = (weightLoc > 0)? 3: 0;
 	m_output = output;
 	m_degree = deg;
+	m_degree_inc = 3;	// starting degree for the incremental optimization
 	init(sphere, property, weight, landmark, weightLoc, coeff, surf, 3);
 }
 
@@ -48,12 +50,15 @@ GroupwiseRegistration::~GroupwiseRegistration(void)
 	delete [] m_feature;
 	delete [] m_updated;
 	delete [] m_work;
+	delete [] m_coeff;
+	delete [] m_coeff_prev_step;
 	for (int subj = 0; subj < m_nSubj; subj++)
 	{
 		delete m_spharm[subj].tree;
 		delete m_spharm[subj].surf;
 		delete m_spharm[subj].sphere;
 		delete [] m_spharm[subj].coeff;
+		delete [] m_spharm[subj].coeff_prev_step;
 		delete [] m_spharm[subj].tree_cache;
 		delete [] m_spharm[subj].meanProperty;
 		delete [] m_spharm[subj].maxProperty;
@@ -82,6 +87,10 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 	m_work = new float[m_nSubj * 3 - 1];	// workspace for eigenvalue computation
 	m_csize = (m_degree + 1) * (m_degree + 1) * m_nSubj; // total # of coefficients
 	m_coeff = new float[m_csize * 2];	// how many coefficients are required: the sum of all possible coefficients
+	m_coeff_prev_step = new float[m_csize * 2];	// the previous coefficients
+
+	// set all the coefficient to zeros
+	memset(m_coeff, 0, sizeof(float) * m_csize * 2);
 	
 	cout << "Initialzation of subject information\n";
 
@@ -92,7 +101,19 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 		// spehre and surface information
 		cout << "-Sphere information\n";
 		m_spharm[subj].sphere = new Mesh();
-		if (sphere != NULL) m_spharm[subj].sphere->openFile(sphere[subj]);
+		if (sphere != NULL)
+		{
+			m_spharm[subj].sphere->openFile(sphere[subj]);
+			// make sure a unit sphere
+			m_spharm[subj].sphere->centering();
+			for (int i = 0; i < m_spharm[subj].sphere->nVertex(); i++)
+			{
+				Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);	// vertex information on the sphere
+				const float *v0 = v->fv();
+				Vector V(v0); V.unit();
+				v->setVertex(V.fv());
+			}
+		}
 		else cout << " Fatal error: No sphere mapping is provided!\n";
 		
 		// previous spherical harmonic deformation fields
@@ -192,6 +213,18 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 		}
 		else m_spharm[subj].tree_cache = NULL;
 	}
+
+	// inital coefficients for the previous step
+	memcpy(m_coeff_prev_step, m_coeff, sizeof(float) * m_csize * 2);
+
+	cout << "Feature vector creation\n";
+	// set all the tree needs to be updated
+	memset(m_updated, 0, sizeof(bool) * m_nSubj);
+
+	// feature update
+	if (nLandmark > 0) updateLandmark(); // update landmark
+	if (nSamples > 0) updateProperties(); // update properties
+
 	cout << "Initialization done!" << endl;
 }
 
@@ -201,14 +234,16 @@ void GroupwiseRegistration::initSphericalHarmonics(int subj, const char **coeff)
 	int n = (m_degree + 1) * (m_degree + 1);	// total number of coefficients (this must be the same across all the subjects at the end of this program)
 	// new memory allocation for coefficients
 	m_spharm[subj].coeff = new float*[n * 2];
+	m_spharm[subj].coeff_prev_step = new float*[n * 2];
+	
 	for (int i = 0; i < n; i++)
 	{
 		// store coefficients by asc order (low to high frequencies)
 		m_spharm[subj].coeff[i] = &m_coeff[m_nSubj * 2 * i + subj * 2];	// latitudes
 		m_spharm[subj].coeff[n + i] = &m_coeff[m_nSubj * 2 * i + subj * 2 + 1];	// longitudes
+		m_spharm[subj].coeff_prev_step[i] = &m_coeff_prev_step[m_nSubj * 2 * i + subj * 2];	// latitudes
+		m_spharm[subj].coeff_prev_step[n + i] = &m_coeff_prev_step[m_nSubj * 2 * i + subj * 2 + 1];	// longitudes
 	}
-	// set all the coefficient to zeros
-	memset(m_coeff, 0, sizeof(float) * m_csize * 2);
 
 	if (coeff != NULL)	// previous spherical harmonics information
 	{
@@ -231,7 +266,7 @@ void GroupwiseRegistration::initSphericalHarmonics(int subj, const char **coeff)
 		m_spharm[subj].pole[2] = 1;
 	}
 	m_spharm[subj].degree = m_degree;
-
+	
 	// build spherical harmonic basis functions for each vertex
 	int nVertex = m_spharm[subj].sphere->nVertex();
 	for (int i = 0; i < nVertex; i++)
@@ -371,7 +406,7 @@ bool GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *
 	if (axis.norm() == 0)	// point == pole
 	{
 		memcpy(v1, v0, sizeof(float) * 3);
-		return true;
+		return false;
 	}
 
 	float delta[2] = {0, 0};
@@ -384,7 +419,7 @@ bool GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *
 	if (delta[0] == 0 && delta[1] == 0)
 	{
 		v1[0] = v0[0]; v1[1] = v0[1]; v1[2] = v0[2];
-		return true;
+		return false;
 	}
 
 	dot = p0 * v;
@@ -418,20 +453,32 @@ bool GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, float *
 	// inverse rotation
 	Coordinate::rotPoint(rv, rot, v1);
 	
-	return false;
+	return true;
 }
 
 void GroupwiseRegistration::updateDeformation(int subject)
 {
+	// note: the deformation happens only if the coefficients change; otherwise, nothing to do
 	bool updated = true;
-	for (int i = 0; i < m_spharm[subject].vertex.size(); i++)
+	
+	// check if the coefficients change
+	int n = (m_degree_inc + 1) * (m_degree_inc + 1);
+	for (int i = 0; i < n && updated; i++)
+		if (*m_spharm[subject].coeff[i] != *m_spharm[subject].coeff_prev_step[i] ||
+			*m_spharm[subject].coeff[(m_degree + 1) * (m_degree + 1) + i] != *m_spharm[subject].coeff_prev_step[(m_degree + 1) * (m_degree + 1) + i])
+			updated = false;
+	
+	// deform a sphere based on the current coefficients if necessary
+	for (int i = 0; i < m_spharm[subject].vertex.size() && !updated; i++)
 	{
-		float v1[3];
-		//updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, m_spharm[subject].coeff, m_spharm[subject].degree, m_spharm[subject].pole);
-		updated &= updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, m_spharm[subject].coeff, m_degree_inc, m_spharm[subject].pole);	// update only focus on the current incremental degree
 		Vertex *v = (Vertex *)m_spharm[subject].sphere->vertex(i);
-		Vector V(v1); V.unit();
-		v->setVertex(V.fv());
+		float v1[3];
+		const float *v0 = v->fv();
+		if (updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, m_spharm[subject].coeff, m_degree_inc, m_spharm[subject].pole)) // update using the current incremental degree
+		{
+			Vector V(v1); V.unit();
+			v->setVertex(V.fv());
+		}
 	}
 	m_updated[subject] = updated;
 }
@@ -447,7 +494,7 @@ void GroupwiseRegistration::updateLandmark(void)
 		for (int subj = 0; subj < m_nSubj; subj++)
 		{
 			int id = m_spharm[subj].landmark[i]->id;
-			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, m_spharm[subj].coeff, m_spharm[subj].degree, m_spharm[subj].pole);
+			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, m_spharm[subj].coeff, m_degree_inc, m_spharm[subj].pole);
 
 			// mean locations
 			for (int k = 0; k < 3; k++) m[k] += m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3 + k];
@@ -489,7 +536,7 @@ void GroupwiseRegistration::updateLandmarkMedian(void)
 		for (int subj = 0; subj < m_nSubj; subj++)
 		{
 			int id = m_spharm[subj].landmark[i]->id;
-			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, m_spharm[subj].coeff, m_spharm[subj].degree, m_spharm[subj].pole);
+			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, m_spharm[subj].coeff, m_degree_inc, m_spharm[subj].pole);
 
 			// median locations
 			x[subj] = m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3 + 0];
@@ -537,12 +584,17 @@ void GroupwiseRegistration::updateProperties(void)
 	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
 	
 	float err = 0;
-	for (int i = 0; i < nSamples; i++)
+	for (int subj = 0; subj < m_nSubj; subj++)
 	{
-		for (int subj = 0; subj < m_nSubj; subj++)
+		if (!m_updated[subj])
+		{
+			m_updated[subj] = true;
+			m_spharm[subj].tree->update();
+		}
+		else continue;	// don't compute again since tree is the same as the previous. The feature vector won't be changed
+		for (int i = 0; i < nSamples; i++)
 		{
 			int fid = -1;
-			int nVertex = m_spharm[subj].sphere->nVertex();
 			float coeff[3];
 			if (m_spharm[subj].tree_cache[i] != -1)	// if previous cache is available
 			{
@@ -558,17 +610,12 @@ void GroupwiseRegistration::updateProperties(void)
 			}
 			if (fid == -1)	// if no closest face is found
 			{
-				if (!m_updated[subj])
-				{
-					m_updated[subj] = true;
-					m_spharm[subj].tree->update();
-				}
 				fid = m_spharm[subj].tree->closestFace(m_propertySamples[i], coeff);
+				if (fid == -1)	// something goes wrong
+					cout << "Fatal error: no closest point found!\n";
 			}
-			if (fid == -1)	// something goes wrong
-			{
-				cout << "Fatal error: no closest point found!\n";
-			}
+
+			int nVertex = m_spharm[subj].sphere->nVertex();
 			for (int k = 0; k < m_nProperties + m_nSurfaceProperties; k++)
 			{
 				m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + nLandmark * 3 + nSamples * k + i] = propertyInterpolation(&m_spharm[subj].property[nVertex * k], fid, coeff, m_spharm[subj].sphere) / m_spharm[subj].sdevProperty[k];
@@ -660,6 +707,9 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 	}
 	nIter++;
 
+	// copy previous coefficients
+	memcpy(m_coeff_prev_step, m_coeff, sizeof(float) * m_csize * 2);
+	
 	return cost;
 }
 
@@ -688,13 +738,10 @@ void GroupwiseRegistration::optimization(void)
 {
 	cost_function costFunc(this);
 	int prev = 0;
-	//int deg = m_spharm[0].degree;  // for the incremental optimization
-	m_degree_inc = 3;	// starting degree for the incremental optimization
 	int step = 1;
 	
 	int n1 = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2;
 	int n2 = m_csize * 2 - n1;
-	//memset(&m_coeff[n1], 0, n2 * sizeof(float));
 
 	while (m_degree_inc < m_degree)
 	{
