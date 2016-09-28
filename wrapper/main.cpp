@@ -76,7 +76,9 @@ int main(int argc , char *argv[])
 		{
 			int pivot = listSphere[i].rfind('/') + 1;
 			string name = listSphere[i].substr(pivot, listSphere[i].length() - 4 - pivot);
-			subjName.push_back(name.substr(0, name.rfind('.')));
+			pivot = name.rfind('.');
+			if (pivot == string::npos) pivot = name.length();
+			subjName.push_back(name.substr(0, pivot));
 		}
 	}
 	//for (int i = 0; i < nSubj; i++) cout << subjName[i] << endl;
