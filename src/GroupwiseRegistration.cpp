@@ -43,7 +43,7 @@ GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, con
 GroupwiseRegistration::~GroupwiseRegistration(void)
 {
 	delete [] m_cov;
-	delete [] m_cov_weight;
+	delete [] m_feature_weight;
 	delete [] m_eig;
 	delete [] m_feature;
 	delete [] m_updated;
@@ -63,6 +63,8 @@ GroupwiseRegistration::~GroupwiseRegistration(void)
 		delete [] m_spharm[subj].flip;
 	}
 	delete [] m_spharm;
+	for (int i = 0; i < m_propertySamples.size(); i++)
+		delete m_propertySamples[i];
 }
 
 void GroupwiseRegistration::run(void)
@@ -96,7 +98,7 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 		// previous spherical harmonic deformation fields
 		cout << "-Spherical harmonics information\n";
 		initSphericalHarmonics(subj, coeff);
-		updateDeformation(subj);	// update the deformation field for efficient AABB tree creation
+		updateDeformation(subj);	// deform the sphere for efficient AABB tree creation
 		
 		if (m_nSurfaceProperties > 0)
 		{
@@ -148,7 +150,7 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 	
 	// weights for covariance matrix computation
 	int nTotalProperties = m_nProperties + m_nSurfaceProperties;	// if location information is provided, total number = # of property + 3 -> (x, y, z location)
-	m_cov_weight = new float[nLandmark + nSamples * nTotalProperties];
+	m_feature_weight = new float[nLandmark + nSamples * nTotalProperties];
 	float landmarkWeight = (nLandmark > 0) ? (float)nSamples / (float)nLandmark: 0;	// based on the number ratio (balance between landmark and property)
 	float totalWeight = weightLoc;
 	for (int n = 0; n < m_nProperties; n++) totalWeight += weight[n];
@@ -157,14 +159,14 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 	cout << "Total properties: " << nTotalProperties << endl;
 
 	// assign the weighting factors
-	for (int i = 0; i < nLandmark; i++) m_cov_weight[i] = landmarkWeight;
+	for (int i = 0; i < nLandmark; i++) m_feature_weight[i] = landmarkWeight;
 	for (int n = 0; n < m_nProperties; n++)
 		for (int i = 0; i < nSamples; i++)
-			m_cov_weight[nLandmark + nSamples * n + i] = weight[n];
+			m_feature_weight[nLandmark + nSamples * n + i] = weight[n];
 	// weight for location information
 	for (int n = 0; n < m_nSurfaceProperties; n++)
 		for (int i = 0; i < nSamples; i++)
-			m_cov_weight[nLandmark + nSamples * (m_nProperties + n) + i] = weightLoc;
+			m_feature_weight[nLandmark + nSamples * (m_nProperties + n) + i] = weightLoc;
 	
 	if (nLandmark > 0) cout << "Landmark weight: " << landmarkWeight << endl;
 	if (m_nProperties > 0)
@@ -523,41 +525,41 @@ void GroupwiseRegistration::updateProperties(void)
 	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
 	
 	float err = 0;
-	for (int k = 0; k < m_nProperties + m_nSurfaceProperties; k++)
+	for (int i = 0; i < nSamples; i++)
 	{
-		for (int i = 0; i < nSamples; i++)
+		for (int subj = 0; subj < m_nSubj; subj++)
 		{
+			int fid = -1;
+			int nVertex = m_spharm[subj].sphere->nVertex();
 			float coeff[3];
-			for (int subj = 0; subj < m_nSubj; subj++)
+			if (m_spharm[subj].tree_cache[i] != -1)	// if previous cache is available
 			{
-				int fid = -1;
-				int nVertex = m_spharm[subj].sphere->nVertex();
-				if (m_spharm[subj].tree_cache[i] != -1)	// if previous cache is available
-				{
-					Face *f = (Face *)m_spharm[subj].sphere->face(m_spharm[subj].tree_cache[i]);
-					Vertex *a = (Vertex *)f->vertex(0);
-					Vertex *b = (Vertex *)f->vertex(1);
-					Vertex *c = (Vertex *)f->vertex(2);
+				Face *f = (Face *)m_spharm[subj].sphere->face(m_spharm[subj].tree_cache[i]);
+				Vertex *a = (Vertex *)f->vertex(0);
+				Vertex *b = (Vertex *)f->vertex(1);
+				Vertex *c = (Vertex *)f->vertex(2);
 
-					// bary centric
-					Coordinate::cart2bary((float *)a->fv(), (float *)b->fv(), (float *)c->fv(), m_propertySamples[i], coeff);
+				// bary centric
+				Coordinate::cart2bary((float *)a->fv(), (float *)b->fv(), (float *)c->fv(), m_propertySamples[i], coeff);
 
-					fid = (coeff[0] >= err && coeff[1] >= err && coeff[2] >= err) ? m_spharm[subj].tree_cache[i]: -1;
-				}
-				if (fid == -1)	// if no closest face is found
+				fid = (coeff[0] >= err && coeff[1] >= err && coeff[2] >= err) ? m_spharm[subj].tree_cache[i]: -1;
+			}
+			if (fid == -1)	// if no closest face is found
+			{
+				if (!m_updated[subj])
 				{
-					if (!m_updated[subj])
-					{
-						m_updated[subj] = true;
-						m_spharm[subj].tree->update();
-					}
-					fid = m_spharm[subj].tree->closestFace(m_propertySamples[i], coeff);
+					m_updated[subj] = true;
+					m_spharm[subj].tree->update();
 				}
-				
-				if (fid == -1)
-				{
-					cout << "Fatal error: no closest point found!\n";
-				}
+				fid = m_spharm[subj].tree->closestFace(m_propertySamples[i], coeff);
+			}
+			if (fid == -1)	// something goes wrong
+			{
+				cout << "Fatal error: no closest point found!\n";
+			}
+			for (int k = 0; k < m_nProperties + m_nSurfaceProperties; k++)
+			{
+			
 				m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + nLandmark * 3 + nSamples * k + i] = propertyInterpolation(&m_spharm[subj].property[nVertex * k], fid, coeff, m_spharm[subj].sphere) / m_spharm[subj].sdevProperty[k];
 
 				m_spharm[subj].tree_cache[i] = fid;
@@ -581,33 +583,15 @@ float GroupwiseRegistration::entropy(void)
 	// update properties
 	if (nSamples > 0) updateProperties();
 	
-	// covariance matrix
-	Statistics::wcov_trans(m_feature, m_nSubj, nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties), m_cov, m_cov_weight);
-	
-	// debug
-	/*for (int i = 0; i < nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties); i++)
-	{
-		cout << m_cov_weight[i] << " ";
-	}
-	cout << endl;
-	// feature vector
-	for (int i = 0; i < nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties); i++)
-	{
-		for (int j = 0; j < m_nSubj; j++)
-			cout << m_feature[j * (nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties)) + i] << " ";
-		cout << endl;
-	}*/
+	// dual covariance matrix (m_nSubj x m_nSubj) of feature vector (nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties) x m_nSubj)
+	Statistics::wcov_trans(m_feature, m_nSubj, nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties), m_cov, m_feature_weight);
 	
 	// entropy
 	eigenvalues(m_cov, m_nSubj, m_eig);
+
 	float alpha = 1e-5;	// avoid a degenerative case
 	for (int i = 1; i < m_nSubj; i++)	// just ignore the first eigenvalue (trivial = 0)
 		E += log(m_eig[i] + alpha);
-
-	/*cout << "Eigenvalues\n";
-	for (int i = 1; i < m_nSubj; i++)
-		printf("%.5f (%.5f) ", m_eig[i] + 1e-5, log(m_eig[i] + 1e-5));
-	cout << "\n";*/
 
 	return E;
 }
@@ -724,7 +708,7 @@ int GroupwiseRegistration::icosahedron(int degree)
 	float t = (1 + sqrt(5.0)) / 2.0;
 	float s = sqrt(1 + t * t);
 
-    // create the 12 vertices
+	// create the 12 vertices
 	Vector v0 = Vector(t, 1.0, 0.0) / s;
 	Vector v1 = Vector(-t, 1.0, 0.0) / s;
 	Vector v2 = Vector(t, -1.0, 0.0) / s;

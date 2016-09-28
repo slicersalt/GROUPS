@@ -94,9 +94,9 @@ private:
 	float m_minscore;
 	
 	// work space for the entire procedure
-	float *m_cov_weight;
 	float *m_cov;
 	float *m_feature;
+	float *m_feature_weight;
 	float *m_eig;
 	float *m_work;	// for lapack eigenvalue computation
 	
