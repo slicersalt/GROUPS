@@ -23,10 +23,10 @@ class GroupwiseRegistration
 {
 public:
 	GroupwiseRegistration(void);
-	GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg = 5, const char **landmark = NULL, float weightLoc = 0, const char **coeff = NULL, const char **surf = NULL, int maxIter = 10000);
+	GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg = 5, const char **landmark = NULL, float weightLoc = 0, const char **coeff = NULL, const char **surf = NULL, int maxIter = 50000);
 	~GroupwiseRegistration(void);
 	void run(void);
-	void saveLCoeff(const char *filename, int id);
+	void saveCoeff(const char *filename, int id);
 	float cost(float *coeff, int statusStep = 10);
 
 private:
@@ -34,7 +34,7 @@ private:
 	void init(const char **sphere, const char **property, const float *weight, const char **landmark, float weightLoc, const char **coeff, const char **surf, int samplingDegree = 3);
 	void initSphericalHarmonics(int subj, const char **coeff);
 	void initTriangleFlipping(int subj);
-	void initProperties(int subj, const char **property);
+	void initProperties(int subj, const char **property, int nHeaderLines);
 	void initLandmarks(int subj, const char **landmark);
 	int icosahedron(int degree);
 
@@ -50,7 +50,7 @@ private:
 
 	// deformation field reconstruction
 	void updateDeformation(int subject);
-	bool updateCoordinate(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole);
+	bool updateCoordinate(const float *v0, float *v1, const float *Y, const float **coeff, float degree, const float *pole);
 	
 private:
 	struct point
@@ -94,7 +94,7 @@ private:
 	spharm *m_spharm;
 	vector<float *> m_propertySamples;
 	
-	float m_minscore;
+	float m_mincost;
 	
 	// work space for the entire procedure
 	float *m_cov;
