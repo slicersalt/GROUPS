@@ -50,7 +50,7 @@ void getTrimmedList(vector<string> &list, const vector<string> &name)
 	sort(list.begin(), list.begin() + list.size());
 }
 
-int main(int argc , char *argv[])
+int main(int argc, char *argv[])
 {
 	PARSE_ARGS;
 	
@@ -61,7 +61,7 @@ int main(int argc , char *argv[])
 	}
 	
 	// update list files from the directory information
-	if (!dirSphere.empty() && listSphere.empty()) getListFile(dirSphere, listSphere, "vtk");
+	if (!dirSphere.empty() && listSphere.empty()) getListFile(dirSphere, listSphere, "vtk");// listSphere.erase(listSphere.begin() + 30, listSphere.begin() + listSphere.size());
 	if (!dirProperty.empty() && listProperty.empty()) getListFile(dirProperty, listProperty, "txt");
 	if (!dirSurf.empty() && listSurf.empty()) getListFile(dirSurf, listSurf, "vtk");
 	if (!dirLandmark.empty() && listLandmark.empty()) getListFile(dirLandmark, listLandmark, "txt");
@@ -86,10 +86,10 @@ int main(int argc , char *argv[])
 		for (int i = 0; i < nSubj; i++) listOutput.push_back(dirOutput + "/" + subjName[i] + ".coeff");
 	
 	// trim all irrelevant files to the sphere files
-	if (!listProperty.empty()) getTrimmedList(listProperty, subjName);
-	if (!listLandmark.empty()) getTrimmedList(listLandmark, subjName);
-	if (!listCoeff.empty()) getTrimmedList(listCoeff, subjName);
-	if (!listProperty.empty()) getTrimmedList(listProperty, listFilter);
+	if (!dirProperty.empty()) getTrimmedList(listProperty, subjName);
+	if (!dirLandmark.empty()) getTrimmedList(listLandmark, subjName);
+	if (!dirCoeff.empty()) getTrimmedList(listCoeff, subjName);
+	if (!dirProperty.empty()) getTrimmedList(listProperty, listFilter);
 	if (listWeight.empty())
 		for (int i = 0; i < listProperty.size() / nSubj; i++)
 			listWeight.push_back(1);
