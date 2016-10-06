@@ -14,7 +14,7 @@
 #include <vector>
 #include <string>
 #include <dirent.h>
-#include "GroupwiseRegistrationCLP.h"
+#include "GroupsCLP.h"
 #include "GroupwiseRegistration.h"
 
 void getListFile(string path, vector<string> &list, const string &suffix)

@@ -22,3 +22,4 @@ include_directories(src)
 
 include_directories(wrapper)
 add_subdirectory(wrapper)
+add_subdirectory(src)
