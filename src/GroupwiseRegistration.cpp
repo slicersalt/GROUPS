@@ -1,3 +1,15 @@
+/*************************************************
+*	GroupwiseRegistration.cpp
+*
+*	Release: Sep 2016
+*	Update: Sep 2016
+*
+*	University of North Carolina at Chapel Hill
+*	Department of Computer Science
+*	
+*	Ilwoo Lyu, ilwoolyu@cs.unc.edu
+*************************************************/
+
 #include <cstring>
 #include <float.h>
 #include "GroupwiseRegistration.h"
@@ -7,756 +19,419 @@
 
 GroupwiseRegistration::GroupwiseRegistration(void)
 {
+	m_maxIter = 0;
+	m_nSubj = 0;
+	m_mincost = FLT_MAX;
+	m_nProperties = 0;
+	m_nSurfaceProperties = 0;
+	m_output = NULL;
+	m_degree = 0;
+	m_degree_inc = 1;	// starting degree for the incremental optimization
 }
 
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, int nSubj, char **landmark, char **asphere, const float *weight, int deg, int nProperties, float propLoc, char *tmpSurf, char **surf, char *coeffLog, char **coeff, int maxIter, char **output)
+GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg, const char **landmark, float weightLoc, const char **coeff, const char **surf, int maxIter)
 {
 	m_maxIter = maxIter;
 	m_nSubj = nSubj;
-	m_minscore = FLT_MAX;
-	if (output != NULL) m_output = output;
-	if (landmark == NULL) init_multi(sphere, tmpDepth, subjDepth, coeff, asphere, nSubj, weight, deg, nProperties, propLoc, tmpSurf, surf);
-	else init(sphere, tmpDepth, subjDepth, coeff, landmark, asphere, nSubj, weight, deg, nProperties, propLoc, tmpSurf, surf);
-	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
-	else m_clfp = NULL;
-	
-	m_prop_only = (landmark == NULL);
-	
-	cout << "Optimization\n";
-	optimization();
-	if (coeffLog != NULL) fclose(m_clfp);
-	cout << "All done!\n";
-}
-
-GroupwiseRegistration::GroupwiseRegistration(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, char **asphere, int nSubj, const float *weight, int deg, char *coeffLog, int nProperties, int maxIter)
-{
-	m_maxIter = maxIter;
-	m_nSubj = nSubj;
-	m_minscore = FLT_MAX;
-	init(sphere, tmpDepth, subjDepth, coeff, correspondence, asphere, nSubj, weight, deg, nProperties);
-	if (coeffLog != NULL) m_clfp = fopen(coeffLog, "w");
-	else m_clfp = NULL;
-	
-	optimization();
-	if (coeffLog != NULL) fclose(m_clfp);
+	m_mincost = FLT_MAX;
+	m_nProperties = nProperties;
+	m_nSurfaceProperties = (weightLoc > 0)? 3: 0;
+	m_output = output;
+	m_degree = deg;
+	m_degree_inc = 3;	// starting degree for the incremental optimization
+	init(sphere, property, weight, landmark, weightLoc, coeff, surf, 4);
 }
 
 GroupwiseRegistration::~GroupwiseRegistration(void)
 {
-	delete [] m_coeff;
-	delete [] m_cov_depth;
-	delete [] m_cov_eig;
-	delete [] m_pointList;
-	delete [] m_cov_weight;
+	delete [] m_cov;
+	delete [] m_feature_weight;
+	delete [] m_eig;
+	delete [] m_feature;
 	delete [] m_updated;
-	delete [] m_meanDepth;
-	delete [] m_maxDepth;
-	delete [] m_minDepth;
-	delete [] m_sdevDepth;
+	delete [] m_work;
+	delete [] m_coeff;
+	delete [] m_coeff_prev_step;
+	for (int subj = 0; subj < m_nSubj; subj++)
+	{
+		delete m_spharm[subj].tree;
+		delete m_spharm[subj].surf;
+		delete m_spharm[subj].sphere;
+		delete [] m_spharm[subj].coeff;
+		delete [] m_spharm[subj].coeff_prev_step;
+		delete [] m_spharm[subj].tree_cache;
+		delete [] m_spharm[subj].meanProperty;
+		delete [] m_spharm[subj].maxProperty;
+		delete [] m_spharm[subj].minProperty;
+		delete [] m_spharm[subj].sdevProperty;
+		delete [] m_spharm[subj].property;
+		delete [] m_spharm[subj].flip;
+	}
+	delete [] m_spharm;
+	for (int i = 0; i < m_propertySamples.size(); i++)
+		delete m_propertySamples[i];
 }
 
-void GroupwiseRegistration::init_multi(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **asphere, int nSubj, const float *weight, int deg, int nProperties, float propLoc, char *tmpSurf, char **surf)
+void GroupwiseRegistration::run(void)
 {
-	// unit sphere information
-	cout << "Loading unit sphere information..\n";
-	m_sphere = new Mesh();
-	m_sphere->openFile(sphere);
-	
-	m_coeff_fn = coeff;
-	m_spharm = new spharm[nSubj];
-	m_entropy = new entropy[m_sphere->nFace()];
-	int nDepth = m_sphere->nVertex();
-	Mesh *tSurf = NULL;
-	if (propLoc != 0)
-	{
-		nProperties += 3;
-		if (tmpSurf != NULL)
-		{
-			//this part should consider landmarkEntropyMulti
-			tSurf = new Mesh();
-			tSurf->openFile(tmpSurf);
-		}
-	}
-	
-	m_depth = new float[nDepth * nProperties];
-	m_meanDepth = new float[nProperties];
-	m_maxDepth = new float[nProperties];
-	m_minDepth = new float[nProperties];
-	m_sdevDepth = new float[nProperties];
-	
-	m_nProperties = nProperties;
-	
-	int count = 0;
-	for (int n = 0; n < nProperties; n++)
-	{
-		if (n >= nProperties - 3 && propLoc != 0 && tmpSurf != NULL)
-		{
-			for (int i = 0; i < nDepth; i++)
-			{
-				Vertex *v = (Vertex *)tSurf->vertex(i);
-				const float *v0 = v->fv();
-				m_depth[nDepth * n + i] = v0[count];
-			}
-			m_meanDepth[n] = Statistics::mean(&m_depth[nDepth * n], nDepth);
-			m_maxDepth[n] = Statistics::max(&m_depth[nDepth * n], nDepth);
-			m_minDepth[n] = Statistics::min(&m_depth[nDepth * n], nDepth);
-			m_sdevDepth[n] = sqrt(Statistics::var(&m_depth[nDepth * n], nDepth));
-			count++;
-		}
-		else if (tmpDepth != NULL)
-		{
-			FILE *fp = fopen(tmpDepth[n], "r");
-			char line[1024];
-			fgets(line, sizeof(line), fp);
-			fgets(line, sizeof(line), fp);
-			fgets(line, sizeof(line), fp);
-			for (int i = 0; i < nDepth && !feof(fp); i++)
-			{
-				fscanf(fp, "%f", &m_depth[nDepth * n + i]);
-				//if (m_depth[i] > 0) m_depth[i] = 0;
-			}
-			fclose(fp);
-			m_meanDepth[n] = Statistics::mean(&m_depth[nDepth * n], nDepth);
-			m_maxDepth[n] = Statistics::max(&m_depth[nDepth * n], nDepth) - m_meanDepth[n];
-			m_minDepth[n] = Statistics::min(&m_depth[nDepth * n], nDepth) - m_meanDepth[n];
-			m_sdevDepth[n] = sqrt(Statistics::var(&m_depth[nDepth * n], nDepth));
-		}
-		else
-		{
-			m_meanDepth[n] = 0;
-			m_maxDepth[n] = -FLT_MAX;
-			m_minDepth[n] = FLT_MAX;
-			m_sdevDepth[n] = 1;
-		}
-	}
+	cout << "Optimization\n";
+	optimization();
 
-	for (int i = 0; i < m_sphere->nFace(); i++)
-		m_entropy[i].occupied = false;
-
-	m_tree = new AABB(m_sphere);
-
-	cout << "Loading initial deformation..\n";
-	m_csize = 0;
-
-	if (coeff != NULL)
+	// write the solutions
+	for (int subj = 0; subj < m_nSubj; subj++)
 	{
-		for (int subj = 0; subj < nSubj; subj++)
-		{
-			int degree;
-			int pole[3];
-			FILE *fp = fopen(coeff[subj],"r");
-			fscanf(fp, "%f %f %f", &pole[0], &pole[1], &pole[2]);
-			fscanf(fp, "%d", &degree);
-			//if (degree < deg) degree = deg;
-			degree = deg;
-			m_csize += (degree + 1) * (degree + 1);
-			fclose(fp);
-		}
+		saveCoeff(m_output[subj], subj);
 	}
-	else
-	{
-		for (int subj = 0; subj < nSubj; subj++)
-		{
-			int degree = deg;
-			int pole[3] = {0, 0, 1};
-			m_csize += (degree + 1) * (degree + 1);
-		}
-	}
-	
-	m_coeff = new float[m_csize * 2];
+	cout << "All done!\n";
+}
+
+void GroupwiseRegistration::init(const char **sphere, const char **property, const float *weight, const char **landmark, float weightLoc, const char **coeff, const char **surf, int samplingDegree)
+{
+	m_spharm = new spharm[m_nSubj];	// spharm info
+	m_updated = new bool[m_nSubj];	// AABB tree cache
+	m_eig = new float[m_nSubj];		// eigenvalues
+	m_work = new float[m_nSubj * 3 - 1];	// workspace for eigenvalue computation
+	m_csize = (m_degree + 1) * (m_degree + 1) * m_nSubj; // total # of coefficients
+	m_coeff = new float[m_csize * 2];	// how many coefficients are required: the sum of all possible coefficients
+	m_coeff_prev_step = new float[m_csize * 2];	// the previous coefficients
+
+	// set all the coefficient to zeros
 	memset(m_coeff, 0, sizeof(float) * m_csize * 2);
-	m_updated = new bool[nSubj];
+	memset(m_coeff_prev_step, 0, sizeof(float) * m_csize * 2);
+	memset(m_updated, 0, sizeof(bool) * m_nSubj);
+	
+	cout << "Initialzation of subject information\n";
 
-	for (int subj = 0; subj < nSubj; subj++)
+	for (int subj = 0; subj < m_nSubj; subj++)
 	{
-		cout << "subject " << subj << endl;
+		cout << "Subject " << subj << " - " << sphere[subj] << endl;
 		
-		// spherical harmonics information
-		m_spharm[subj] = spharm();
-		int degree = deg;
-		if (coeff != NULL)
-		{
-			FILE *fp = fopen(coeff[subj],"r");
-			fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]);
-			fscanf(fp, "%d", &m_spharm[subj].degree);
-			/*int degree = m_spharm[subj].degree;
-			if (degree < deg) degree = deg;*/
-			if (m_spharm[subj].degree > deg) m_spharm[subj].degree = deg;
-
-			int n = (degree + 1) * (degree + 1);
-			m_spharm[subj].coeff = new float*[n * 2];
-			for (int i = 0; i < n; i++)
-			{
-				m_spharm[subj].coeff[i] = &m_coeff[nSubj * 2 * i + subj * 2];
-				m_spharm[subj].coeff[n + i] = &m_coeff[nSubj * 2 * i + subj * 2 + 1];
-			}
-
-			for (int i = 0; i < (m_spharm[subj].degree + 1) * (m_spharm[subj].degree + 1); i++)
-				fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]);
-			fclose(fp);
-		}
-		else
-		{
-			m_spharm[subj].pole[0] = 0;
-			m_spharm[subj].pole[1] = 0;
-			m_spharm[subj].pole[2] = 1;
-			m_spharm[subj].degree = deg;
-			if (m_spharm[subj].degree > deg) m_spharm[subj].degree = deg;
-
-			int n = (degree + 1) * (degree + 1);
-			m_spharm[subj].coeff = new float*[n * 2];
-			for (int i = 0; i < n; i++)
-			{
-				m_spharm[subj].coeff[i] = &m_coeff[nSubj * 2 * i + subj * 2];
-				m_spharm[subj].coeff[n + i] = &m_coeff[nSubj * 2 * i + subj * 2 + 1];
-			}
-		}
-
-		// sphere information
+		// spehre and surface information
+		cout << "-Sphere information\n";
 		m_spharm[subj].sphere = new Mesh();
-		if (asphere != NULL) m_spharm[subj].sphere->openFile(asphere[subj]);
-		else m_spharm[subj].sphere->openFile(sphere);
-		
-		if (propLoc != 0)
+		if (sphere != NULL)
 		{
+			m_spharm[subj].sphere->openFile(sphere[subj]);
+			// make sure a unit sphere
+			m_spharm[subj].sphere->centering();
+			for (int i = 0; i < m_spharm[subj].sphere->nVertex(); i++)
+			{
+				Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);	// vertex information on the sphere
+				const float *v0 = v->fv();
+				Vector V(v0); V.unit();
+				v->setVertex(V.fv());
+			}
+		}
+		else cout << " Fatal error: No sphere mapping is provided!\n";
+		
+		// previous spherical harmonic deformation fields
+		cout << "-Spherical harmonics information\n";
+		initSphericalHarmonics(subj, coeff);
+		updateDeformation(subj);	// deform the sphere for efficient AABB tree creation
+		
+		if (m_nSurfaceProperties > 0)
+		{
+			cout << "-Location information\n";
 			m_spharm[subj].surf = new Mesh();
 			m_spharm[subj].surf->openFile(surf[subj]);
 		}
-
-		// vertices on the sphere
-		for (int i = 0; i < m_spharm[subj].sphere->nVertex(); i++)
-		{
-			sphereVertex *p = new sphereVertex();
-			Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);
-			const float *v0 = v->fv();
-			p->Y = new float[(degree + 1) * (degree + 1)];
-			p->v[0] = v0[0]; p->v[1] = v0[1]; p->v[2] = v0[2];
-			SphericalHarmonics::basis(degree, p->v, p->Y);
-			m_spharm[subj].vertex.push_back(p);
-		}
-
-		// AABB tree construction
-		cout << "Constructing a search tree.. ";
-		m_spharm[subj].tree = new AABB(m_spharm[subj].sphere);
-		cout << "done\n";
-
-		// depth information
-		cout << "Loading depth information.. \n";
-		int nDepth = m_spharm[subj].sphere->nVertex();
-		int nFace = m_spharm[subj].sphere->nFace();
-		m_spharm[subj].meanDepth = new float[nProperties];
-		m_spharm[subj].maxDepth = new float[nProperties];
-		m_spharm[subj].minDepth = new float[nProperties];
-		m_spharm[subj].sdevDepth = new float[nProperties];
-		m_spharm[subj].depth = new float[nDepth * nProperties];
-		m_spharm[subj].flip = new bool[nFace];
+		else m_spharm[subj].surf = NULL;
 		
-		count = 0;
-		for (int n = 0; n < nProperties; n++)
+		if (m_nProperties + m_nSurfaceProperties > 0)
 		{
-			if (n >= nProperties - 3 && propLoc != 0)
-			{
-				for (int i = 0; i < nDepth; i++)
-				{
-					Vertex *v = (Vertex *)m_spharm[subj].surf->vertex(i);
-					const float *v0 = v->fv();
-					m_spharm[subj].depth[nDepth * n + i] = v0[count];
-				}
-				count++;
-				m_spharm[subj].meanDepth[n] = Statistics::mean(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].maxDepth[n] = Statistics::max(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].minDepth[n] = Statistics::min(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].sdevDepth[n] = sqrt(Statistics::var(&m_spharm[subj].depth[nDepth * n], nDepth));
-				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
-				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
-				if (m_sdevDepth[n] < m_spharm[subj].sdevDepth[n]) m_sdevDepth[n] = m_spharm[subj].sdevDepth[n];
-			}
-			else
-			{
-				cout << "\t" << subjDepth[nSubj * n + subj] << endl;
-				FILE *fp = fopen(subjDepth[nSubj * n + subj], "r");
-				char line[1024];
-				fgets(line, sizeof(line), fp);
-				fgets(line, sizeof(line), fp);
-				fgets(line, sizeof(line), fp);
-				//for (int i = 0; i < nDepth && !feof(fp); i++)
-				for (int i = 0; i < nDepth; i++)
-				{
-					fscanf(fp, "%f", &m_spharm[subj].depth[nDepth * n + i]);
-					//if (m_spharm[subj].depth[n * nProperties + i] > 0) m_spharm[subj].depth[n * nProperties + i] = 0;
-				}
-				fclose(fp);
-				m_spharm[subj].meanDepth[n] = Statistics::mean(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].maxDepth[n] = Statistics::max(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].minDepth[n] = Statistics::min(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].sdevDepth[n] = sqrt(Statistics::var(&m_spharm[subj].depth[nDepth * n], nDepth));
-				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
-				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
-				if (m_sdevDepth[n] < m_spharm[subj].sdevDepth[n]) m_sdevDepth[n] = m_spharm[subj].sdevDepth[n];
-			}
+			// AABB tree construction for speedup computation
+			cout << "-AABB tree construction\n";
+			m_spharm[subj].tree = new AABB(m_spharm[subj].sphere);
 		}
+		else m_spharm[subj].tree = NULL;
 		
-		// flip check
-		for (int i = 0; i < nFace; i++)
-		{
-			const float *v1 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(0))->fv();
-			const float *v2 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(1))->fv();
-			const float *v3 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(2))->fv();
-
-			Vector V1(v1), V2(v2), V3(v3);
-			Vector V = (V1 + v2 + V3) / 3;
-
-			Vector U = (V2 - V1).cross(V3 - V1);
-
-			if (V * U < 0) m_spharm[subj].flip[i] = true;
-			else m_spharm[subj].flip[i] = false;
-		}
+		// triangle flipping
+		cout << "-Triangle flipping\n";
+		initTriangleFlipping(subj);
 		
-		cout << "done\n";
-	}
-
-	// depth variance
-	cout << "Generating sample points for depth variance.. ";
-	icosahedron(3);
-	cout << "done\n";
-	
-	// work space
-	int depth = m_depthvar.size();
-	m_cov_weight = new float[depth * nProperties];
-	float w = 1.0f;
-	
-	int evarsize = 0;
-	for (int i = 0; i < nSubj; i++)
-		evarsize += m_spharm[i].sphere->nVertex();
-	m_edgeVar = new float[evarsize];
-	m_nEdges = 0;
-	for (int i = 0; i < nSubj; i++)
-	{
-		m_spharm[i].edge_var = &m_edgeVar[m_nEdges];
-		m_nEdges += m_spharm[i].sphere->nVertex();
-	}
-	
-	if (propLoc == 0)
-	{
-		for (int n = 0; n < nProperties; n++)
-			for (int i = 0; i < depth; i++)
-				m_cov_weight[n * depth + i] = weight[n];
-	}
-	else
-	{
-		for (int n = 0; n < nProperties - 3; n++)
-			for (int i = 0; i < depth; i++)
-				m_cov_weight[n * depth + i] = weight[n];
-		for (int n = nProperties - 3; n < nProperties; n++)
-			for (int i = 0; i < depth; i++)
-				m_cov_weight[n * depth + i] = propLoc;
-	}
-
-	m_cov_depth = new float[nSubj + 1];
-	m_cov_eig = new float[(nSubj + 1) * (nSubj + 1)];
-	m_pointList = new float[(nSubj + 1) * (depth * nProperties)];
-	for (int n = 0; n < nProperties; n++)
-	{
-		for (int i = 0; i < depth; i++)
+		// property information
+		cout << "-Property information\n";
+		initProperties(subj, property, 3);
+		
+		// landmarks
+		if (landmark != NULL)
 		{
-			float coeffs[3];
-			int id = m_tree->closestFace(m_depthvar[i], coeffs, 0.01);
-			m_pointList[nSubj * depth * nProperties + n * depth + i] = (depthInterpolation(&m_depth[nDepth * n], id, coeffs, m_sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
+			cout << "-Landmark information\n";
+			initLandmarks(subj, landmark);
 		}
+		cout << "----------" << endl;
 	}
-	
-	// depth cache
-	for (int subj = 0; subj < nSubj; subj++)
+
+	// icosahedron subdivision for evaluation on properties: this generates uniform sampling points over the sphere - m_propertySamples
+	if (m_nProperties + m_nSurfaceProperties > 0) icosahedron(samplingDegree);
+	// landmark information - the number of landamrks should be the same across subjects
+	if (landmark != NULL)
 	{
-		m_spharm[subj].depth_cache = new int[depth * nProperties];
-		for (int n = 0; n < nProperties; n++)
-			for (int i = 0; i < depth; i++)
-				m_spharm[subj].depth_cache[depth * n + i] = -1;
+		int nLandmark = m_spharm[0].landmark.size();
+		for (int subj = 0; subj < m_nSubj; subj++)
+			if (nLandmark != m_spharm[subj].landmark.size())
+				cout << " Fatal error: # of landamrks should be agreed!\n";
 	}
+
+	cout << "Computing weight terms\n";
+	int nLandmark = m_spharm[0].landmark.size() * 3;	// # of landmarks: we assume all the subject has the same number, which already is checked above.
+	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
 	
-	cout << "Cache size: " << depth * nProperties << endl;
-	cout << "Initialization done\n";
+	// weights for covariance matrix computation
+	int nTotalProperties = m_nProperties + m_nSurfaceProperties;	// if location information is provided, total number = # of property + 3 -> (x, y, z location)
+	m_feature_weight = new float[nLandmark + nSamples * nTotalProperties];
+	float landmarkWeight = (nLandmark > 0) ? (float)nSamples / (float)nLandmark: 0;	// based on the number ratio (balance between landmark and property)
+	float totalWeight = weightLoc;
+	for (int n = 0; n < m_nProperties; n++) totalWeight += weight[n];
+	landmarkWeight *= totalWeight;
+	if (landmarkWeight == 0) landmarkWeight = 1;
+	cout << "Total properties: " << nTotalProperties << endl;
+	cout << "Sampling points: " << nSamples << endl;
+
+	// assign the weighting factors
+	for (int i = 0; i < nLandmark; i++) m_feature_weight[i] = landmarkWeight;
+	for (int n = 0; n < m_nProperties; n++)
+		for (int i = 0; i < nSamples; i++)
+			m_feature_weight[nLandmark + nSamples * n + i] = weight[n];
+	// weight for location information
+	for (int n = 0; n < m_nSurfaceProperties; n++)
+		for (int i = 0; i < nSamples; i++)
+			m_feature_weight[nLandmark + nSamples * (m_nProperties + n) + i] = weightLoc;
+	
+	if (nLandmark > 0) cout << "Landmark weight: " << landmarkWeight << endl;
+	if (m_nProperties > 0)
+	{
+		cout << "Property weight: ";
+		for (int i = 0; i < m_nProperties; i++) cout << weight[i] << " ";
+		cout << endl;
+	}
+	if (weightLoc > 0) cout << "Location weight: " << weightLoc << endl;
+	
+	cout << "Initialization of work space\n";
+	m_cov = new float[m_nSubj * m_nSubj];	// convariance matrix defined in the duel space with dimensions: nSubj x nSubj
+	m_feature = new float[m_nSubj * (nLandmark + nSamples * nTotalProperties)];	// the entire feature vector map for optimization
+
+	// AABB tree cache for each subject: this stores the closest face of the sampling point to the corresponding face on the input sphere model
+	for (int subj = 0; subj < m_nSubj; subj++)
+	{
+		if (nTotalProperties > 0)
+		{
+			m_spharm[subj].tree_cache = new int[nSamples];
+			for (int i = 0; i < nSamples; i++)
+				m_spharm[subj].tree_cache[i] = -1;	// initially, set to -1 (invalid index)
+		}
+		else m_spharm[subj].tree_cache = NULL;
+	}
+
+	// inital coefficients for the previous step
+	memcpy(m_coeff_prev_step, m_coeff, sizeof(float) * m_csize * 2);
+
+	cout << "Feature vector creation\n";
+	// set all the tree needs to be updated
+	memset(m_updated, 0, sizeof(bool) * m_nSubj);
+
+	// feature update
+	if (nLandmark > 0) updateLandmark(); // update landmark
+	if (nSamples > 0) updateProperties(); // update properties
+
+	cout << "Initialization done!" << endl;
 }
 
-void GroupwiseRegistration::init(char *sphere, char **tmpDepth, char **subjDepth, char **coeff, char **correspondence, char **asphere, int nSubj, const float *weight, int deg, int nProperties, float propLoc, char *tmpSurf, char **surf)
+void GroupwiseRegistration::initSphericalHarmonics(int subj, const char **coeff)
 {
-	// unit sphere information
-	cout << "Loading unit sphere information..\n";
-	m_sphere = new Mesh();
-	m_sphere->openFile(sphere);
-
-	m_coeff_fn = coeff;
-	m_spharm = new spharm[nSubj];
-	m_entropy = new entropy[m_sphere->nFace()];
-
-	int nDepth = m_sphere->nVertex();
-	Mesh *tSurf = NULL;
-	if (propLoc != 0)
-	{
-		nProperties += 3;
-		if (tmpSurf != NULL)
-		{
-			tSurf = new Mesh();
-			tSurf->openFile(tmpSurf);
-		}
-	}
-	m_depth = new float[nDepth * nProperties];
-	m_meanDepth = new float[nProperties];
-	m_maxDepth = new float[nProperties];
-	m_minDepth = new float[nProperties];
-	m_sdevDepth = new float[nProperties];
-
-	m_nProperties = nProperties;
-
-	int count = 0;
-	for (int n = 0; n < nProperties; n++)
-	{
-		if (n >= nProperties - 3 && propLoc != 0 && tmpSurf != NULL)
-		{
-			for (int i = 0; i < nDepth; i++)
-			{
-				Vertex *v = (Vertex *)tSurf->vertex(i);
-				const float *v0 = v->fv();
-				m_depth[nDepth * n + i] = v0[count];
-			}
-			m_meanDepth[n] = Statistics::mean(&m_depth[nDepth * n], nDepth);
-			m_maxDepth[n] = Statistics::max(&m_depth[nDepth * n], nDepth);
-			m_minDepth[n] = Statistics::min(&m_depth[nDepth * n], nDepth);
-			m_sdevDepth[n] = sqrt(Statistics::var(&m_depth[nDepth * n], nDepth));
-			count++;
-		}
-		else if (tmpDepth != NULL)
-		{
-			FILE *fp = fopen(tmpDepth[n], "r");
-			char line[1024];
-			fgets(line, sizeof(line), fp);
-			fgets(line, sizeof(line), fp);
-			fgets(line, sizeof(line), fp);
-			for (int i = 0; i < nDepth && !feof(fp); i++)
-			{
-				fscanf(fp, "%f", &m_depth[nDepth * n + i]);
-				//if (m_depth[i] > 0) m_depth[i] = 0;
-			}
-			fclose(fp);
-			m_meanDepth[n] = Statistics::mean(&m_depth[nDepth * n], nDepth);
-			m_maxDepth[n] = Statistics::max(&m_depth[nDepth * n], nDepth) - m_meanDepth[n];
-			m_minDepth[n] = Statistics::min(&m_depth[nDepth * n], nDepth) - m_meanDepth[n];
-			m_sdevDepth[n] = sqrt(Statistics::var(&m_depth[nDepth * n], nDepth));
-		}
-		else
-		{
-			m_meanDepth[n] = 0;
-			m_maxDepth[n] = -FLT_MAX;
-			m_minDepth[n] = FLT_MAX;
-			m_sdevDepth[n] = 1;
-		}
-	}
-
-	for (int i = 0; i < m_sphere->nFace(); i++)
-		m_entropy[i].occupied = false;
-
-	m_tree = new AABB(m_sphere);
-
-	cout << "Loading initial deformation..\n";
-	m_csize = 0;
-
-	if (coeff != NULL)
-	{
-		for (int subj = 0; subj < nSubj; subj++)
-		{
-			int degree;
-			int pole[3];
-			FILE *fp = fopen(coeff[subj],"r");
-			fscanf(fp, "%f %f %f", &pole[0], &pole[1], &pole[2]);
-			fscanf(fp, "%d", &degree);
-			//if (degree < deg) degree = deg;
-			degree = deg;
-			m_csize += (degree + 1) * (degree + 1);
-			fclose(fp);
-		}
-	}
-	else
-	{
-		for (int subj = 0; subj < nSubj; subj++)
-		{
-			int degree = deg;
-			int pole[3] = {0, 0, 1};
-			m_csize += (degree + 1) * (degree + 1);
-		}
-	}
+	// spherical harmonics information
+	int n = (m_degree + 1) * (m_degree + 1);	// total number of coefficients (this must be the same across all the subjects at the end of this program)
+	// new memory allocation for coefficients
+	m_spharm[subj].coeff = new float*[n * 2];
+	m_spharm[subj].coeff_prev_step = new float*[n * 2];
 	
-	m_coeff = new float[m_csize * 2];
-	memset(m_coeff, 0, sizeof(float) * m_csize * 2);
-	m_updated = new bool[nSubj];
-
-	for (int subj = 0; subj < nSubj; subj++)
+	for (int i = 0; i < n; i++)
 	{
-		cout << "subject " << subj << endl;
-		// spherical harmonics information
-		m_spharm[subj] = spharm();
-		int degree = deg;
-		if (coeff != NULL)
-		{
-			FILE *fp = fopen(coeff[subj],"r");
-			fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]);
-			fscanf(fp, "%d", &m_spharm[subj].degree);
-			/*int degree = m_spharm[subj].degree;
-			if (degree < deg) degree = deg;*/
-			if (m_spharm[subj].degree > deg) m_spharm[subj].degree = deg;
+		// store coefficients by asc order (low to high frequencies)
+		m_spharm[subj].coeff[i] = &m_coeff[m_nSubj * 2 * i + subj * 2];	// latitudes
+		m_spharm[subj].coeff[n + i] = &m_coeff[m_nSubj * 2 * i + subj * 2 + 1];	// longitudes
+		m_spharm[subj].coeff_prev_step[i] = &m_coeff_prev_step[m_nSubj * 2 * i + subj * 2];	// latitudes
+		m_spharm[subj].coeff_prev_step[n + i] = &m_coeff_prev_step[m_nSubj * 2 * i + subj * 2 + 1];	// longitudes
+	}
 
-			int n = (degree + 1) * (degree + 1);
-			m_spharm[subj].coeff = new float*[n * 2];
-			for (int i = 0; i < n; i++)
-			{
-				m_spharm[subj].coeff[i] = &m_coeff[nSubj * 2 * i + subj * 2];
-				m_spharm[subj].coeff[n + i] = &m_coeff[nSubj * 2 * i + subj * 2 + 1];
-			}
+	if (coeff != NULL)	// previous spherical harmonics information
+	{
+		FILE *fp = fopen(coeff[subj],"r");
+		fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]);	// optimal pole information
+		fscanf(fp, "%d", &m_spharm[subj].degree);	// previous deformation field degree
 
-			for (int i = 0; i < (m_spharm[subj].degree + 1) * (m_spharm[subj].degree + 1); i++)
-				fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]);
-			fclose(fp);
-		}
-		else
-		{
-			m_spharm[subj].pole[0] = 0;
-			m_spharm[subj].pole[1] = 0;
-			m_spharm[subj].pole[2] = 1;
-			m_spharm[subj].degree = deg;
-			if (m_spharm[subj].degree > deg) m_spharm[subj].degree = deg;
+		if (m_spharm[subj].degree > m_degree) m_spharm[subj].degree = m_degree;	// if the previous degree is larger than desired one, just crop it.
 
-			int n = (degree + 1) * (degree + 1);
-			m_spharm[subj].coeff = new float*[n * 2];
-			for (int i = 0; i < n; i++)
-			{
-				m_spharm[subj].coeff[i] = &m_coeff[nSubj * 2 * i + subj * 2];
-				m_spharm[subj].coeff[n + i] = &m_coeff[nSubj * 2 * i + subj * 2 + 1];
-			}
-		}
-
-		// sphere information
-		m_spharm[subj].sphere = new Mesh();
-		if (asphere != NULL) m_spharm[subj].sphere->openFile(asphere[subj]);
-		else m_spharm[subj].sphere->openFile(sphere);
-
-		if (propLoc != 0)
-		{
-			m_spharm[subj].surf = new Mesh();
-			m_spharm[subj].surf->openFile(surf[subj]);
-		}
-		
-		// vertices on the sphere
-		for (int i = 0; i < m_spharm[subj].sphere->nVertex(); i++)
-		{
-			sphereVertex *p = new sphereVertex();
-			Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);
-			const float *v0 = v->fv();
-			p->Y = new float[(degree + 1) * (degree + 1)];
-			p->v[0] = v0[0]; p->v[1] = v0[1]; p->v[2] = v0[2];
-			SphericalHarmonics::basis(degree, p->v, p->Y);
-			m_spharm[subj].vertex.push_back(p);
-		}
-
-		// AABB tree construction
-		cout << "Constructing a search tree.. ";
-		m_spharm[subj].tree = new AABB(m_spharm[subj].sphere);
-		cout << "done\n";
-
-		// depth information
-		cout << "Loading depth information.. ";
-		int nDepth = m_spharm[subj].sphere->nVertex();
-		int nFace = m_spharm[subj].sphere->nFace();
-		if (nProperties > 0)
-		{
-			m_spharm[subj].meanDepth = new float[nProperties];
-			m_spharm[subj].maxDepth = new float[nProperties];
-			m_spharm[subj].minDepth = new float[nProperties];
-			m_spharm[subj].sdevDepth = new float[nProperties];
-			m_spharm[subj].depth = new float[nDepth * nProperties];
-		}
-		m_spharm[subj].flip = new bool[nFace];
-		cout << endl;
-		count = 0;
-		for (int n = 0; n < nProperties; n++)
-		{
-			if (n >= nProperties - 3 && propLoc != 0)
-			{
-				for (int i = 0; i < nDepth; i++)
-				{
-					Vertex *v = (Vertex *)m_spharm[subj].surf->vertex(i);
-					const float *v0 = v->fv();
-					m_spharm[subj].depth[nDepth * n + i] = v0[count];
-				}
-				count++;
-				m_spharm[subj].meanDepth[n] = Statistics::mean(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].maxDepth[n] = Statistics::max(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].minDepth[n] = Statistics::min(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].sdevDepth[n] = sqrt(Statistics::var(&m_spharm[subj].depth[nDepth * n], nDepth));
-				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
-				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
-				if (m_sdevDepth[n] < m_spharm[subj].sdevDepth[n]) m_sdevDepth[n] = m_spharm[subj].sdevDepth[n];
-			}
-			else
-			{
-				cout << "\t" << subjDepth[nSubj * n + subj] << endl;
-				FILE *fp = fopen(subjDepth[nSubj * n + subj], "r");
-				char line[1024];
-				fgets(line, sizeof(line), fp);
-				fgets(line, sizeof(line), fp);
-				fgets(line, sizeof(line), fp);
-				//for (int i = 0; i < nDepth && !feof(fp); i++)
-				for (int i = 0; i < nDepth; i++)
-				{
-					fscanf(fp, "%f", &m_spharm[subj].depth[nDepth * n + i]);
-					//if (m_spharm[subj].depth[n * nProperties + i] > 0) m_spharm[subj].depth[n * nProperties + i] = 0;
-				}
-				fclose(fp);
-				m_spharm[subj].meanDepth[n] = Statistics::mean(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].maxDepth[n] = Statistics::max(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].minDepth[n] = Statistics::min(&m_spharm[subj].depth[nDepth * n], nDepth);
-				m_spharm[subj].sdevDepth[n] = sqrt(Statistics::var(&m_spharm[subj].depth[nDepth * n], nDepth));
-				if (m_maxDepth[n] < m_spharm[subj].maxDepth[n]) m_maxDepth[n] = m_spharm[subj].maxDepth[n];
-				if (m_minDepth[n] > m_spharm[subj].minDepth[n]) m_minDepth[n] = m_spharm[subj].minDepth[n];
-				if (m_sdevDepth[n] < m_spharm[subj].sdevDepth[n]) m_sdevDepth[n] = m_spharm[subj].sdevDepth[n];
-			}
-		}
-
-		// flip check
-		for (int i = 0; i < nFace; i++)
-		{
-			const float *v1 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(0))->fv();
-			const float *v2 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(1))->fv();
-			const float *v3 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(2))->fv();
-
-			Vector V1(v1), V2(v2), V3(v3);
-			Vector V = (V1 + v2 + V3) / 3;
-
-			Vector U = (V2 - V1).cross(V3 - V1);
-
-			if (V * U < 0) m_spharm[subj].flip[i] = true;
-			else m_spharm[subj].flip[i] = false;
-		}
-		
-		cout << "done\n";
-
-		// entropy computation
-		cout << "Loading entropy samples.. ";
-		cout << endl;
-		FILE *fp = fopen(correspondence[subj], "r");
-		cout << "\t" << correspondence[subj] << endl;
-		int i = 0;
-		while (!feof(fp))
-		{
-			// indices for corresponding points
-			int srcid;
-
-			// correspondence information
-			int id = -1;
-			fscanf(fp, "%d", &id);
-			if (id == -1) break;
-			const float *src = m_spharm[subj].sphere->vertex(id)->fv();
-			
-			float *Y = new float[(degree + 1) * (degree + 1)];
-			point *p = new point();
-			p->p[0] = src[0]; p->p[1] = src[1]; p->p[2] = src[2];
-			SphericalHarmonics::basis(degree, p->p, Y);
-			p->subject = subj;
-			p->Y = Y;
-			//m_point.push_back(p);
-
-			m_entropy[i].samples.push_back(p);
-			m_entropy[i].occupied = true;
-
-			i++;
-		}
+		// load previous coefficient information
+		for (int i = 0; i < (m_spharm[subj].degree + 1) * (m_spharm[subj].degree + 1); i++)
+			fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]);
 		fclose(fp);
-		cout << "done\n";
 	}
-
-	for (int i = 0; i < m_sphere->nFace(); i++)
-		if (m_entropy[i].occupied && m_entropy[i].samples.size() == nSubj) m_entropyList.push_back(i);
-
-	// depth variance
-	cout << "Generating sample points for depth variance.. ";
-	icosahedron(3);
-	cout << "done\n";
-
-	// work space
-	int landmark = m_entropyList.size() * 3;
-	//int depth = m_entropyList.size() * 1;
-	int depth = m_depthvar.size();
-	m_cov_weight = new float[landmark + depth * nProperties];
-	float w = sqrt((float)depth / (float)landmark);
-	if (w == 0) w = 1;
-	//float w = 1.0f;
-	for (int i = 0; i < landmark; i++) m_cov_weight[i] = w;
-	if (propLoc == 0)
+	else	// no spherical harmonic information is provided
 	{
-		for (int n = 0; n < nProperties; n++)
-			for (int i = 0; i < depth; i++)
-				m_cov_weight[landmark + n * depth + i] = weight[n];
+		// just set the pole to [0, 0, 1]
+		m_spharm[subj].pole[0] = 0;
+		m_spharm[subj].pole[1] = 0;
+		m_spharm[subj].pole[2] = 1;
 	}
-	else
-	{
-		for (int n = 0; n < nProperties - 3; n++)
-			for (int i = 0; i < depth; i++)
-				m_cov_weight[landmark + n * depth + i] = weight[n];
-		for (int n = nProperties - 3; n < nProperties; n++)
-			for (int i = 0; i < depth; i++)
-				m_cov_weight[landmark + n * depth + i] = propLoc;
-	}
+	m_spharm[subj].degree = m_degree;
 	
-	cout << "regularized weight: " << w << " " << (depth * nProperties) << "/" << landmark << endl;
-
-	/*for (int i = 0; i < landmark; i++) m_cov_weight[i] = 1.0f;
-	for (int i = 0; i < depth; i++) m_cov_weight[landmark + i] = 0;*/
-
-	//cout << "Depth Range: [" << m_minDepth << ", " << m_maxDepth << "]\n";
-
-	m_cov_depth = new float[nSubj + 1];
-	//m_cov_eig = new float[(landmark + depth) * (landmark + depth)];
-	m_cov_eig = new float[(nSubj + 1) * (nSubj + 1)];
-	m_pointList = new float[(nSubj + 1) * (landmark + depth * nProperties)];
-	for (int n = 0; n < nProperties; n++)
+	// build spherical harmonic basis functions for each vertex
+	int nVertex = m_spharm[subj].sphere->nVertex();
+	for (int i = 0; i < nVertex; i++)
 	{
-		for (int i = 0; i < depth; i++)
-		{
-			float coeffs[3];
-			int id = m_tree->closestFace(m_depthvar[i], coeffs, 0.01);
-			m_pointList[nSubj * (landmark + depth * nProperties) + (n * depth + landmark) + i] = depthInterpolation(m_depth, id, coeffs, m_sphere);
-			//m_pointList[nSubj * (landmark + depth * nProperties) + (n * depth + landmark) + i] = (depthInterpolation(&m_depth[depth * n], id, coeffs, m_sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
-		}
-	}
-
-	// dpeth cache
-	if (nProperties > 0)
-	{
-		for (int subj = 0; subj < nSubj; subj++)
-		{
-			m_spharm[subj].depth_cache = new int[depth * nProperties];
-			for (int n = 0; n < nProperties; n++)
-				for (int i = 0; i < depth; i++)
-					m_spharm[subj].depth_cache[depth * n + i] = -1;
-		}
+		// vertex information
+		point *p = new point();	// new spherical information allocation
+		Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);	// vertex information on the sphere
+		const float *v0 = v->fv();
+		p->Y = new float[(m_degree + 1) * (m_degree + 1)];
+		p->p[0] = v0[0]; p->p[1] = v0[1]; p->p[2] = v0[2];
+		p->id = i;
+		p->subject = subj;
+		SphericalHarmonics::basis(m_degree, p->p, p->Y);
+		m_spharm[subj].vertex.push_back(p);
 	}
 }
 
-void GroupwiseRegistration::reconsCoord(const float *v0, float *v1, float *Y, float **coeff, float degree, float *pole)
+void GroupwiseRegistration::initProperties(int subj, const char **property, int nHeaderLines)
+{
+	int nVertex = m_spharm[subj].sphere->nVertex();	// this is the same as the number of properties
+	int nFace = m_spharm[subj].sphere->nFace();
+	if (m_nProperties + m_nSurfaceProperties > 0)
+	{
+		m_spharm[subj].meanProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].maxProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].minProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].sdevProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].property = new float[(m_nProperties + m_nSurfaceProperties) * nVertex];
+	}
+	else
+	{
+		m_spharm[subj].meanProperty = NULL;
+		m_spharm[subj].maxProperty = NULL;
+		m_spharm[subj].minProperty = NULL;
+		m_spharm[subj].sdevProperty = NULL;
+		m_spharm[subj].property = NULL;
+	}
+	for (int i = 0; i < m_nProperties; i++)	// property information
+	{
+		int index = subj * m_nProperties + i;
+		cout << "\t" << property[index] << endl;
+		FILE *fp = fopen(property[index], "r");
+		
+		// remove header lines
+		char line[1024];
+		for (int j = 0; j < nHeaderLines; j++) fgets(line, sizeof(line), fp);
+		
+		// load property information
+		for (int j = 0; j < nVertex; j++) fscanf(fp, "%f", &m_spharm[subj].property[nVertex * i + j]);
+		fclose(fp);
+	}
+	for (int i = 0; i < m_nSurfaceProperties; i++)	// x, y, z dimensions
+	{
+		for (int j = 0; j < nVertex; j++)
+		{
+			Vertex *v = (Vertex *)m_spharm[subj].surf->vertex(j);
+			const float *v0 = v->fv();
+			m_spharm[subj].property[nVertex * (m_nProperties + i) + j] = v0[i];
+		}
+	}
+	
+	// find the best statistics across subjects
+	for (int i = 0; i < m_nProperties + m_nSurfaceProperties; i++)
+	{
+		cout << "--Property " << i << endl;
+		m_spharm[subj].meanProperty[i] = Statistics::mean(&m_spharm[subj].property[nVertex * i], nVertex);
+		m_spharm[subj].maxProperty[i] = Statistics::max(&m_spharm[subj].property[nVertex * i], nVertex);
+		m_spharm[subj].minProperty[i] = Statistics::min(&m_spharm[subj].property[nVertex * i], nVertex);
+		m_spharm[subj].sdevProperty[i] = sqrt(Statistics::var(&m_spharm[subj].property[nVertex * i], nVertex));
+		cout << "---Min/Max: " << m_spharm[subj].minProperty[i] << ", " << m_spharm[subj].maxProperty[i] << endl;
+		cout << "---Mean/Stdev: " << m_spharm[subj].meanProperty[i] << ", " << m_spharm[subj].sdevProperty[i] << endl;
+	}
+}
+
+void GroupwiseRegistration::initTriangleFlipping(int subj)
+{
+	int nFace = m_spharm[subj].sphere->nFace();
+	m_spharm[subj].flip = new bool[nFace];
+	
+	// check triangle flips
+	for (int i = 0; i < nFace; i++)
+	{
+		const float *v1 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(0))->fv();
+		const float *v2 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(1))->fv();
+		const float *v3 = m_spharm[subj].sphere->vertex(m_spharm[subj].sphere->face(i)->list(2))->fv();
+
+		Vector V1(v1), V2(v2), V3(v3);
+		Vector V = (V1 + v2 + V3) / 3;
+
+		Vector U = (V2 - V1).cross(V3 - V1);
+
+		if (V * U < 0) m_spharm[subj].flip[i] = true;
+		else m_spharm[subj].flip[i] = false;
+	}
+}
+
+void GroupwiseRegistration::initLandmarks(int subj, const char **landmark)
+{
+	FILE *fp = fopen(landmark[subj], "r");
+	int i = 0;
+	while (!feof(fp))
+	{
+		// indices for corresponding points
+		int srcid;
+
+		// landmark information
+		int id;
+		if (fscanf(fp, "%d", &id) == -1) break;
+		const float *v = m_spharm[subj].sphere->vertex(id)->fv();
+		
+		float *Y = new float[(m_degree + 1) * (m_degree + 1)];
+		point *p = new point();
+		p->p[0] = v[0]; p->p[1] = v[1]; p->p[2] = v[2];
+		SphericalHarmonics::basis(m_degree, p->p, Y);
+		p->subject = subj;
+		p->Y = Y;
+		p->id = id;
+
+		m_spharm[subj].landmark.push_back(p);
+		
+		i++;
+	}
+	fclose(fp);
+}
+
+bool GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, const float *Y, const float **coeff, float degree, const float *pole)
 {
 	// spharm basis
 	int n = (degree + 1) * (degree + 1);
 
-	MathVector p0(pole), axis;
+	Vector p0(pole), axis;
 	float dot;
 
 	// fit to the equator
 	float rot[9];
-	MathVector v(v0);
+	Vector v(v0);
 	axis = p0.cross(v);
 	if (axis.norm() == 0)	// point == pole
 	{
 		memcpy(v1, v0, sizeof(float) * 3);
-		return;
+		return false;
 	}
+
+	float delta[2] = {0, 0};
+	for (int i = 0; i < n; i++)
+	{
+		delta[0] += Y[i] * *coeff[i];
+		delta[1] += Y[i] * *coeff[(m_degree + 1) * (m_degree + 1) + i];
+	}
+
+	if (delta[0] == 0 && delta[1] == 0)
+	{
+		memcpy(v1, v0, sizeof(float) * 3);
+		return false;
+	}
+
 	dot = p0 * v;
 	dot = (dot > 1) ? 1: dot;
 	dot = (dot < -1) ? -1: dot;
@@ -772,276 +447,130 @@ void GroupwiseRegistration::reconsCoord(const float *v0, float *v1, float *Y, fl
 	Coordinate::cart2sph(rv, &phi, &theta);
 	
 	// displacement
-	float delta[2] = {0, 0};
-	for (int i = 0; i < n; i++)
-	{
-		delta[0] += Y[i] * *coeff[i];
-		delta[1] += Y[i] * *coeff[n + i];
-	}
-	phi += delta[0];
+	phi += delta[0];	// longitude (azimuth) change
 	Coordinate::sph2cart(phi, theta, rv);
 	
-	MathVector u(rv);
+	// rotation to the new longitude change
+	// a simple inverse rotation is not enough due to not exact location back
+	Vector u(rv);
 	axis = p0.cross(u);
 	if (axis.norm() == 0) axis = p0;
 	Coordinate::rotation(axis.fv(), -deg, rot);
 	
 	theta += delta[1];
-	Coordinate::sph2cart(phi, theta, rv);
+	Coordinate::sph2cart(phi, theta, rv);	// locally normalized polar system
 
 	// inverse rotation
 	Coordinate::rotPoint(rv, rot, v1);
+	
+	return true;
 }
 
 void GroupwiseRegistration::updateDeformation(int subject)
 {
-	for (int i = 0; i < m_spharm[subject].vertex.size(); i++)
+	// note: the deformation happens only if the coefficients change; otherwise, nothing to do
+	bool updated = m_updated[subject];
+	
+	// check if the coefficients change
+	int n = (m_degree_inc + 1) * (m_degree_inc + 1);
+	for (int i = 0; i < n && updated; i++)
+		if (*m_spharm[subject].coeff[i] != *m_spharm[subject].coeff_prev_step[i] ||
+			*m_spharm[subject].coeff[(m_degree + 1) * (m_degree + 1) + i] != *m_spharm[subject].coeff_prev_step[(m_degree + 1) * (m_degree + 1) + i])
+			updated = false;
+	
+	// deform a sphere based on the current coefficients if necessary
+	for (int i = 0; i < m_spharm[subject].vertex.size() && !updated; i++)
 	{
-		float v1[3];
-		reconsCoord(m_spharm[subject].vertex[i]->v, v1, m_spharm[subject].vertex[i]->Y, m_spharm[subject].coeff, m_spharm[subject].degree, m_spharm[subject].pole);
 		Vertex *v = (Vertex *)m_spharm[subject].sphere->vertex(i);
-		MathVector V(v1); V.unit();
-		v->setVertex(V.fv());
-	}
-	m_updated[subject] = false;
-}
-
-float GroupwiseRegistration::landmarkEntropyMulti(void)
-{
-	int d = m_depthvar.size();
-	int nSubj = m_nSubj;
-	float E = 0;
-	float *cov = m_cov_eig;	memset(cov, 0, sizeof(float) * nSubj * nSubj);
-	float *p = m_pointList;
-	
-	// depth information
-	int fid;
-	float err = 0;
-	for (int n = 0; n < m_nProperties; n++)
-	{
-		for (int i = 0; i < d; i++)
+		float v1[3];
+		const float *v0 = v->fv();
+		updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, (const float **)m_spharm[subject].coeff, m_degree_inc, m_spharm[subject].pole); // update using the current incremental degree
 		{
-			float coeff[3];
-			for (int j = 0; j < m_nSubj; j++)
-			{
-				if (m_spharm[j].depth_cache[d * n + i] != -1)
-				{
-					Face *f = (Face *)m_spharm[j].sphere->face(m_spharm[j].depth_cache[d * n + i]);
-					Vertex *a = (Vertex *)f->vertex(0);
-					Vertex *b = (Vertex *)f->vertex(1);
-					Vertex *c = (Vertex *)f->vertex(2);
-
-					// bary centric
-					Coordinate::cart2bary((float *)a->fv(), (float *)b->fv(), (float *)c->fv(), m_depthvar[i], coeff);
-
-					if (coeff[0] >= err && coeff[1] >= err && coeff[2] >= err)
-					{
-						fid = m_spharm[j].depth_cache[d * n + i];
-					}
-					else
-					{
-						if (!m_updated[j])
-						{
-							m_updated[j] = true;
-							m_spharm[j].tree->update();
-						}
-						fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff);
-					}
-				}
-				else
-				{
-					if (!m_updated[j])
-					{
-						m_updated[j] = true;
-						m_spharm[j].tree->update();
-					}
-					fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff, 0.01);
-				}
-				//p[j * (n * 3 + d * 1) + n * 3 + i] = depthInterpolation(m_spharm[j].depth, fid, coeff, m_spharm[j].sphere);
-				//p[j * (d * m_nProperties) + d * n + i] = (depthInterpolation(&m_spharm[j].depth[m_spharm[j].vertex.size() * n], fid, coeff, m_spharm[j].sphere) - m_minDepth[n]) / (m_maxDepth[n] - m_minDepth[n]);
-				p[j * (d * m_nProperties) + d * n + i] = depthInterpolation(&m_spharm[j].depth[m_spharm[j].vertex.size() * n], fid, coeff, m_spharm[j].sphere) / m_spharm[j].sdevDepth[n];
-
-				m_spharm[j].depth_cache[d * n + i] = fid;
-			}
+			Vector V(v1); V.unit();
+			v->setVertex(V.fv());
 		}
 	}
-
-	Statistics::wcov_trans(p, nSubj, d * m_nProperties, cov, m_cov_weight);
-	//Statistics::cov_trans(p, nSubj, d * m_nProperties, cov);
-
-	// entropy
-	float *eig = new float[nSubj];
-	eigenvalues(cov, nSubj, eig);
-	
-	for (int i = 1; i < nSubj; i++)
-		E += log(eig[i] + 1e-5);
-
-	return E;
+	m_updated[subject] = updated;
 }
 
-float GroupwiseRegistration::landmarkEntropy(void)
+void GroupwiseRegistration::updateLandmark(void)
 {
-	int n = m_entropyList.size();
-	int d = m_depthvar.size();
-	int nSubj = m_nSubj;
-	float E = 0;
-	float *cov = m_cov_eig;	memset(cov, 0, sizeof(float) * nSubj * nSubj);
-	float *p = m_pointList;
+	int nLandmark = m_spharm[0].landmark.size();
+	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
 
-	for (int i = 0; i < n; i++)
+	for (int i = 0; i < nLandmark; i++)
 	{
-		float m[3] = {0, 0, 0};
-		int id = m_entropyList[i];
-		int nSamples = m_entropy[id].samples.size();
-		for (int j = 0; j < nSamples; j++)
+		float m[3] = {0, 0, 0};	// mean
+		for (int subj = 0; subj < m_nSubj; subj++)
 		{
-			int subj = m_entropy[id].samples[j]->subject;
-			reconsCoord(m_entropy[id].samples[j]->p, &p[subj * (n * 3 + d * m_nProperties) + i * 3], m_entropy[id].samples[j]->Y, m_spharm[subj].coeff, m_spharm[subj].degree, m_spharm[subj].pole);
+			int id = m_spharm[subj].landmark[i]->id;
+			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, (const float **)m_spharm[subj].coeff, m_degree_inc, m_spharm[subj].pole);
 
-			// mean
-			for (int k = 0; k < 3; k++) m[k] += p[subj * (n * 3 + d * m_nProperties) + i * 3 + k];
+			// mean locations
+			for (int k = 0; k < 3; k++) m[k] += m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3 + k];
 		}
-
 		// forcing the mean to be on the sphere
 		float norm = sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
 		for (int k = 0; k < 3; k++) m[k] /= norm;
-
+		
 		// projection
-		for (int j = 0; j < nSamples; j++)
+		for (int subj = 0; subj < m_nSubj; subj++)
 		{
 			float newp[3];
-			int subj = m_entropy[id].samples[j]->subject;
-			Coordinate::proj2plane(m[0], m[1], m[2], -1, &p[subj * (n * 3 + d * m_nProperties) + i * 3], newp);
-			memcpy(&p[subj * (n * 3 + d * m_nProperties) + i * 3], newp, sizeof(float) * 3);
+			Coordinate::proj2plane(m[0], m[1], m[2], -1, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], newp);
+			memcpy(&m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], newp, sizeof(float) * 3);
 		}
 	}
-
-	// depth information
-	int fid;
-	float err = 0;
-	for (int k = 0; k < m_nProperties; k++)
-	{
-		for (int i = 0; i < d; i++)
-		{
-			float coeff[3];
-			for (int j = 0; j < m_nSubj; j++)
-			{
-				if (m_spharm[j].depth_cache[d * k + i] != -1)
-				{
-					Face *f = (Face *)m_spharm[j].sphere->face(m_spharm[j].depth_cache[d * k + i]);
-					Vertex *a = (Vertex *)f->vertex(0);
-					Vertex *b = (Vertex *)f->vertex(1);
-					Vertex *c = (Vertex *)f->vertex(2);
-
-					// bary centric
-					Coordinate::cart2bary((float *)a->fv(), (float *)b->fv(), (float *)c->fv(), m_depthvar[i], coeff);
-
-					if (coeff[0] >= err && coeff[1] >= err && coeff[2] >= err)
-					{
-						fid = m_spharm[j].depth_cache[d * k + i];
-					}
-					else
-					{
-						if (!m_updated[j])
-						{
-							m_updated[j] = true;
-							m_spharm[j].tree->update();
-						}
-						fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff);
-					}
-				}
-				else
-				{
-					if (!m_updated[j])
-					{
-						m_updated[j] = true;
-						m_spharm[j].tree->update();
-					}
-					fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff, 0.01);
-				}
-				//p[j * (n * 3 + d * 1) + n * 3 + i] = depthInterpolation(m_spharm[j].depth, fid, coeff, m_spharm[j].sphere);
-				//p[j * (n * 3 + d * m_nProperties) + n * 3 + d * k + i] = (depthInterpolation(&m_spharm[j].depth[m_spharm[j].vertex.size() * k], fid, coeff, m_spharm[j].sphere) - m_minDepth[k]) / (m_maxDepth[k] - m_minDepth[k]);
-				p[j * (n * 3 + d * m_nProperties) + n * 3 + d * k + i] = depthInterpolation(&m_spharm[j].depth[m_spharm[j].vertex.size() * k], fid, coeff, m_spharm[j].sphere) / m_spharm[j].sdevDepth[k];
-
-				m_spharm[j].depth_cache[d * k + i] = fid;
-			}
-		}
-	}
-
-	Statistics::wcov_trans(p, nSubj, n * 3 + d * m_nProperties, cov, m_cov_weight);
-	//Statistics::cov_trans(p, nSubj, n * 3 + d * m_nProperties, cov);
-
-	// entropy
-	float *eig = new float[nSubj];
-	eigenvalues(cov, nSubj, eig);
-	for (int i = 1; i < nSubj; i++)
-		E += log(eig[i] + 1e-5);
-
-	return E;
 }
 
-float GroupwiseRegistration::landmarkEntropyMedian(void)
+void GroupwiseRegistration::updateLandmarkMedian(void)
 {
-	int n = m_entropyList.size();
-	int d = m_depthvar.size();
-	int nSubj = m_nSubj + 1;
-	float E = 0;
-	float *cov = m_cov_eig;	memset(cov, 0, sizeof(float) * nSubj * nSubj);
-	float *p = m_pointList;
-	float m[3];
-	float *newp = new float[3];
+	int nLandmark = m_spharm[0].landmark.size();
+	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
+	
+	// m-estimator
+	float m1 = 0.03 * 0.01;
+	float m2 = 16.8 * 0.01;
+	float u = (m2 + m1) / 2;
+	float sigma = ((m2 + m1) / 2 - m1) / 3;
 
-	// scaling
-	float d1 = 0.03 * 0.01;
-    float d2 = 16.8 * 0.01;
-	float u = (d2 + d1) / 2;
-	float sigma = ((d2 + d1) / 2 - d1) / 3;
-
-	for (int i = 0; i < n; i++)
+	// deformed points
+	float *x = new float[m_nSubj];
+	float *y = new float[m_nSubj];
+	float *z = new float[m_nSubj];
+	
+	for (int i = 0; i < nLandmark; i++)
 	{
-		int id = m_entropyList[i];
-		int nSamples = m_entropy[id].samples.size();
-		// point on the template
-		memcpy(&m_pointList[nSamples * (n * 3 + d * m_nProperties) + i * 3], m_entropy[id].p, sizeof(float) * 3);
-		//memcpy(m, m_entropy[id].p, sizeof(float) * 3);
-
-		// deformed points
-		float *x = new float[nSamples];
-		float *y = new float[nSamples];
-		float *z = new float[nSamples];
-
-		for (int j = 0; j < nSamples; j++)
+		float m[3] = {0, 0, 0};	// median
+		
+		for (int subj = 0; subj < m_nSubj; subj++)
 		{
-			int subj = m_entropy[id].samples[j]->subject;
-			reconsCoord(m_entropy[id].samples[j]->p, &p[subj * (n * 3 + d * m_nProperties) + i * 3], m_entropy[id].samples[j]->Y, m_spharm[subj].coeff, m_spharm[subj].degree, m_spharm[subj].pole);
+			int id = m_spharm[subj].landmark[i]->id;
+			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, (const float **)m_spharm[subj].coeff, m_degree_inc, m_spharm[subj].pole);
 
-			// median
-			x[j] = p[subj * (n * 3 + d * m_nProperties) + i * 3 + 0];
-			y[j] = p[subj * (n * 3 + d * m_nProperties) + i * 3 + 1];
-			z[j] = p[subj * (n * 3 + d * m_nProperties) + i * 3 + 2];
+			// median locations
+			x[subj] = m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3 + 0];
+			y[subj] = m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3 + 1];
+			z[subj] = m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3 + 2];
 		}
-
-		m[0] = Statistics::median(x, nSamples);
-		m[1] = Statistics::median(y, nSamples);
-		m[2] = Statistics::median(z, nSamples);
-
-		delete [] x;
-		delete [] y;
-		delete [] z;
+		m[0] = Statistics::median(x, m_nSubj);
+		m[1] = Statistics::median(y, m_nSubj);
+		m[2] = Statistics::median(z, m_nSubj);
 
 		// forcing the mean to be on the sphere
 		float norm = sqrt(m[0] * m[0] + m[1] * m[1] + m[2] * m[2]);
 		for (int k = 0; k < 3; k++) m[k] /= norm;
 
 		// projection
-		for (int j = 0; j <= nSamples; j++)
+		for (int subj = 0; subj < m_nSubj; subj++)
 		{
-			Coordinate::proj2plane(m[0], m[1], m[2], -1, &p[j * (n * 3 + d * m_nProperties) + i * 3], newp);
+			float newp[3];
+			Coordinate::proj2plane(m[0], m[1], m[2], -1, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], newp);
 
-			// scaling
+			// m-estimator
 			float len = sqrt((newp[0] - m[0]) * (newp[0] - m[0]) + (newp[1] - m[1]) * (newp[1] - m[1]) + (newp[2] - m[2]) * (newp[2] - m[2]));
-			//float slen = Statistics::normal_cdf(len, u, sigma);
-			float slen = (len < d2) ? len: d2;
+			float slen = Statistics::normal_cdf(len, u, sigma);
+			slen = (len < m2) ? len: m2;
 			float ratio = 1.0f;
 			if (len > 0) ratio = slen / len;
 
@@ -1049,72 +578,87 @@ float GroupwiseRegistration::landmarkEntropyMedian(void)
 			newp[1] = m[1] + (newp[1] - m[1]) * ratio;
 			newp[2] = m[2] + (newp[2] - m[2]) * ratio;
 
-			memcpy(&p[j * (n * 3 + d * m_nProperties) + i * 3], newp, sizeof(float) * 3);
+			memcpy(&m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], newp, sizeof(float) * 3);
 		}
 	}
+	
+	// free
+	delete [] x;
+	delete [] y;
+	delete [] z;
+}
 
-	// depth information
-	//fp=fopen("depth.txt","w");
-	int fid;
+void GroupwiseRegistration::updateProperties(void)
+{
+	int nLandmark = m_spharm[0].landmark.size();
+	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
+	
 	float err = 0;
-	for (int k = 0; k < m_nProperties; k++)
+	for (int subj = 0; subj < m_nSubj; subj++)
 	{
-		for (int i = 0; i < d; i++)
+		if (!m_updated[subj])
 		{
-			float coeff[3];
-			for (int j = 0; j < m_nSubj; j++)
-			{
-				if (m_spharm[j].depth_cache[d * n + i] != -1)
-				{
-					Face *f = (Face *)m_spharm[j].sphere->face(m_spharm[j].depth_cache[d * k + i]);
-					Vertex *a = (Vertex *)f->vertex(0);
-					Vertex *b = (Vertex *)f->vertex(1);
-					Vertex *c = (Vertex *)f->vertex(2);
-
-					// bary centric
-					Coordinate::cart2bary((float *)a->fv(), (float *)b->fv(), (float *)c->fv(), m_depthvar[i], coeff);
-
-					if (coeff[0] >= err && coeff[1] >= err && coeff[2] >= err)
-					{
-						fid = m_spharm[j].depth_cache[d * n + i];
-					}
-					else
-					{
-						if (!m_updated[j])
-						{
-							m_updated[j] = true;
-							m_spharm[j].tree->update();
-						}
-						fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff);
-					}
-				}
-				else
-				{
-					if (!m_updated[j])
-					{
-						m_updated[j] = true;
-						m_spharm[j].tree->update();
-					}
-					fid = m_spharm[j].tree->closestFace(m_depthvar[i], coeff);
-				}
-				//p[j * (n * 3 + d * 1) + n * 3 + i] = depthInterpolation(m_spharm[j].depth, fid, coeff, m_spharm[j].sphere);
-				p[j * (n * 3 + d * m_nProperties) + n * 3 + d * k + i] = (depthInterpolation(&m_spharm[j].depth[d * k], fid, coeff, m_spharm[j].sphere) - m_minDepth[k]) / (m_maxDepth[k] - m_minDepth[k]);
-				//fprintf(fp, "%f(%f %f %f) ", p[j * (n * 3 + d * 1) + n * 3 + i], coeff[0], coeff[1], coeff[2]);
-
-				m_spharm[j].depth_cache[d * k + i] = fid;
-			}
-			//fprintf(fp, "\n");
+			m_updated[subj] = true;
+			m_spharm[subj].tree->update();
 		}
-		//fclose(fp);
+		else continue;	// don't compute again since tree is the same as the previous. The feature vector won't be changed
+		for (int i = 0; i < nSamples; i++)
+		{
+			int fid = -1;
+			float coeff[3];
+			if (m_spharm[subj].tree_cache[i] != -1)	// if previous cache is available
+			{
+				Face *f = (Face *)m_spharm[subj].sphere->face(m_spharm[subj].tree_cache[i]);
+				Vertex *a = (Vertex *)f->vertex(0);
+				Vertex *b = (Vertex *)f->vertex(1);
+				Vertex *c = (Vertex *)f->vertex(2);
+
+				// bary centric
+				Coordinate::cart2bary((float *)a->fv(), (float *)b->fv(), (float *)c->fv(), m_propertySamples[i], coeff);
+
+				fid = (coeff[0] >= err && coeff[1] >= err && coeff[2] >= err) ? m_spharm[subj].tree_cache[i]: -1;
+			}
+			if (fid == -1)	// if no closest face is found
+			{
+				fid = m_spharm[subj].tree->closestFace(m_propertySamples[i], coeff);
+				if (fid == -1)	// something goes wrong
+					cout << "Fatal error: no closest point found!\n";
+			}
+
+			int nVertex = m_spharm[subj].sphere->nVertex();
+			for (int k = 0; k < m_nProperties + m_nSurfaceProperties; k++)
+			{
+				m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + nLandmark * 3 + nSamples * k + i] = propertyInterpolation(&m_spharm[subj].property[nVertex * k], fid, coeff, m_spharm[subj].sphere) / m_spharm[subj].sdevProperty[k];
+			}
+			m_spharm[subj].tree_cache[i] = fid;
+		}
 	}
+}
 
-	Statistics::wcov_trans(p, nSubj, n * 3 + d * m_nProperties, cov, m_cov_weight);
+float GroupwiseRegistration::entropy(void)
+{
+	int nLandmark = m_spharm[0].landmark.size() * 3;	// # of landmarks: we assume all the subject has the same number
+	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
+	
+	float E = 0;	// entropy
+	
+	memset(m_cov, 0, sizeof(float) * m_nSubj * m_nSubj);	// reset covariance matrix
 
+	// update landmark
+	if (nLandmark > 0) updateLandmark();
+	
+	// update properties
+	if (nSamples > 0) updateProperties();
+	
+	// dual covariance matrix (m_nSubj x m_nSubj) of feature vector (nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties) x m_nSubj)
+	Statistics::wcov_trans(m_feature, m_nSubj, nLandmark + nSamples * (m_nProperties + m_nSurfaceProperties), m_cov, m_feature_weight);
+	
 	// entropy
-	float *eig = new float[nSubj];
-	eigenvalues(cov, nSubj, eig);
-	for (int i = 1; i < nSubj; i++)
-		if (eig[i] > 0) E += log(eig[i]);
+	eigenvalues(m_cov, m_nSubj, m_eig);
+
+	float alpha = 1e-5;	// avoid a degenerative case
+	for (int i = 1; i < m_nSubj; i++)	// just ignore the first eigenvalue (trivial = 0)
+		E += log(m_eig[i] + alpha);
 
 	return E;
 }
@@ -1125,38 +669,15 @@ void GroupwiseRegistration::eigenvalues(float *M, int dim, float *eig)
 	int lwork = dim * 3 - 1;	// dimension of the work array
 	int lda = n;			// lda: leading dimension
 	int info;				// information (0 for successful exit)
-	float *work = new float[lwork];
-
-	ssyev_("N", "L", &n, M, &lda, eig, work, &lwork, &info);
-
-	delete [] work;
+	
+	char jobz[] = "N";	// eigenvalue only
+	char uplo[] = "L"; // Lower triangle
+	ssyev_(jobz, uplo, &n, M, &lda, eig, m_work, &lwork, &info);
 }
 
-float GroupwiseRegistration::depthVariance(void)
+float GroupwiseRegistration::propertyInterpolation(float *refMap, int index, float *coeff, Mesh *mesh)
 {
-	float coeff[3];
-	float var = 0;
-
-	for (int i = 0; i < m_depthvar.size(); i++)
-	{
-		//m_cov_depth[0] = m_depth[i] - m_meanDepth;
-		m_cov_depth[0] = (m_depth[i] - m_minDepth[0]) / (m_maxDepth[0] - m_minDepth[0]);
-		for (int j = 0; j < m_nSubj; j++)
-		{
-			int id = m_spharm[j].tree->closestFace(m_depthvar[i], coeff);
-			float depth = depthInterpolation(&m_spharm[j].depth[0], id, coeff, m_spharm[j].sphere);
-			//m_cov_depth[j + 1] = depth - m_spharm[j].meanDepth;
-			m_cov_depth[j + 1] = (depth - m_minDepth[0]) / (m_maxDepth[0] - m_minDepth[0]);
-		}
-		var += Statistics::var(m_cov_depth, m_nSubj + 1);
-	}
-
-	return var;
-}
-
-float GroupwiseRegistration::depthInterpolation(float *refMap, int index, float *coeff, Mesh *mesh)
-{
-	float depth = 0;
+	float property = 0;
 
 	if (index != -1)
 	{
@@ -1164,65 +685,49 @@ float GroupwiseRegistration::depthInterpolation(float *refMap, int index, float 
 		Vertex *a = (Vertex *)f->vertex(0);
 		Vertex *b = (Vertex *)f->vertex(1);
 		Vertex *c = (Vertex *)f->vertex(2);
-		depth = refMap[a->id()] * coeff[0] + refMap[b->id()] * coeff[1] + refMap[c->id()] * coeff[2];
+		property = refMap[a->id()] * coeff[0] + refMap[b->id()] * coeff[1] + refMap[c->id()] * coeff[2];
 	}
 
-	return depth;
-}
-
-float GroupwiseRegistration::flipCost(void)
-{
-	int nFolds = 0;
-	for (int i = 0; i < m_nSubj; i++)
-		nFolds += testFlip(m_spharm[i].sphere, m_spharm[i].flip);
-	
-	return nFolds;
+	return property;
 }
 
 float GroupwiseRegistration::cost(float *coeff, int statusStep)
 {
-	for (int i = 0; i < m_nSubj; i++)
-	{
-		updateDeformation(i);
-	}
+	// update defomation fields
+	for (int i = 0; i < m_nSubj; i++) updateDeformation(i);
 	
-	int nFolds = flipCost();
-	float lcost = m_minscore, fcost = 0;
-	if (nFolds == 0)
+	// how many flips are detected
+	int nFolds = 0;
+	for (int i = 0; i < m_nSubj; i++)
+		nFolds += testTriangleFlip(m_spharm[i].sphere, m_spharm[i].flip);
+
+	float fcost = (nFolds == 0) ? 0: (nFolds + 1) * fabs(m_mincost);
+	float ecost = (nFolds == 0) ? entropy(): m_mincost;
+
+	float cost = ecost + fcost;
+	if (m_mincost > cost)
 	{
-		lcost = (m_prop_only) ? landmarkEntropyMulti(): landmarkEntropy();
+		m_mincost = cost;
+		// write the current optimal solutions
+		for (int subj = 0; subj < m_nSubj; subj++)
+		{
+			saveCoeff(m_output[subj], subj);
+		}
 	}
-	else
-	{
-		fcost = (nFolds + 1) * fabs(m_minscore);
-	}
-	if (nIter == 0) m_minscore = lcost;
-	float cost = lcost + fcost;
-	if (m_minscore > cost) m_minscore = cost;
 	
 	if (nIter % statusStep == 0)
 	{
-		//cout << "[" << nIter << "] " << cost << " = " << lcost << " + " << ecost << endl;
-		cout << "[" << nIter << "] " << cost << " (" << lcost << " + " << fcost << ")" << endl;
-		for (int subj = 0; subj < m_nSubj; subj++)
-		{
-			saveLCoeff(m_output[subj], subj);
-		}
-		if (m_clfp != NULL)
-		{
-			fprintf(m_clfp, "[%0#6d] %f", nIter, cost);
-			fprintf(m_clfp, "\n");
-			fflush(m_clfp);
-
-			saveLDeformation("group.txt");
-		}
+		cout << "[" << nIter << "] " << cost << " (" << ecost << " + " << fcost << ")" << " " << m_mincost << endl;
 	}
 	nIter++;
 
+	// copy previous coefficients
+	memcpy(m_coeff_prev_step, m_coeff, sizeof(float) * m_csize * 2);
+	
 	return cost;
 }
 
-int GroupwiseRegistration::testFlip(Mesh *mesh, const bool *flip)
+int GroupwiseRegistration::testTriangleFlip(Mesh *mesh, const bool *flip)
 {
 	int nFolds = 0;
 	for (int i = 0; i < mesh->nFace(); i++)
@@ -1237,6 +742,8 @@ int GroupwiseRegistration::testFlip(Mesh *mesh, const bool *flip)
 		Vector U = (V2 - V1).cross(V3 - V1);
 
 		if ((V * U < 0 && !flip[i]) || (V * U > 0 && flip[i])) nFolds++;
+		
+		if (nFolds > 0) break;	// do not allow any flips!
 	}
 	return nFolds;
 }
@@ -1244,25 +751,22 @@ int GroupwiseRegistration::testFlip(Mesh *mesh, const bool *flip)
 void GroupwiseRegistration::optimization(void)
 {
 	cost_function costFunc(this);
-	//cout << "var: " << depthVariance() << endl;
 	int prev = 0;
-	//int deg = m_spharm[0].degree;  // for the incremental optimization
-	int deg = 3;	// starting degree for the incremental optimization
 	int step = 1;
 	
-	int n1 = (deg + 1) * (deg + 1) * m_nSubj * 2;
+	int n1 = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2;
 	int n2 = m_csize * 2 - n1;
-	//memset(&m_coeff[n1], 0, n2 * sizeof(float));
 
-	while (deg < m_spharm[0].degree)
+	while (m_degree_inc < m_degree)
 	{
 		nIter = 0;
-		int n = (deg + 1) * (deg + 1) * m_nSubj * 2 - prev;
+		int n = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2 - prev;
 		min_newuoa(n, &m_coeff[prev], costFunc, 1.0f, 1e-5f, m_maxIter);
-		prev = (deg + 1) * (deg + 1) * m_nSubj * 2;
-		deg = min(deg + step, m_spharm[0].degree);
+		prev = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2;
+		m_degree_inc = min(m_degree_inc + step, m_degree);
 	}
 	
+	// the entire optimization together
 	nIter = 0;
 	min_newuoa(m_csize * 2, m_coeff, costFunc, 1.0f, 1e-6f, m_maxIter);
 }
@@ -1270,48 +774,48 @@ void GroupwiseRegistration::optimization(void)
 int GroupwiseRegistration::icosahedron(int degree)
 {
 	// http://www.1activeserverpagesstreet.com/vb/scripts/ShowCode.asp?txtCodeId=9814&lngWId=3
-	vector<MathVector *> triangles;
-	vector<MathVector> vertices;
+	vector<Vector *> triangles;
+	vector<Vector> vertices;
 
 	float t = (1 + sqrt(5.0)) / 2.0;
-    float s = sqrt(1 + t * t);
+	float s = sqrt(1 + t * t);
 
-    // create the 12 vertices
-    MathVector v0 = MathVector(t, 1.0, 0.0) / s;
-    MathVector v1 = MathVector(-t, 1.0, 0.0) / s;
-    MathVector v2 = MathVector(t, -1.0, 0.0) / s;
-    MathVector v3 = MathVector(-t, -1.0, 0.0) / s;
-    MathVector v4 = MathVector(1.0, 0.0, t) / s;
-    MathVector v5 = MathVector(1.0, 0.0, -t) / s;
-    MathVector v6 = MathVector(-1.0, 0.0, t) / s;
-    MathVector v7 = MathVector(-1.0, 0.0, -t) / s;
-    MathVector v8 = MathVector(0.0, t, 1.0) / s;
-    MathVector v9 = MathVector(0.0, -t, 1.0) / s;
-    MathVector v10 = MathVector(0.0, t, -1.0) / s;
-    MathVector v11 = MathVector(0.0, -t, -1.0) / s;
+	// create the 12 vertices
+	Vector v0 = Vector(t, 1.0, 0.0) / s;
+	Vector v1 = Vector(-t, 1.0, 0.0) / s;
+	Vector v2 = Vector(t, -1.0, 0.0) / s;
+	Vector v3 = Vector(-t, -1.0, 0.0) / s;
+	Vector v4 = Vector(1.0, 0.0, t) / s;
+	Vector v5 = Vector(1.0, 0.0, -t) / s;
+	Vector v6 = Vector(-1.0, 0.0, t) / s;
+	Vector v7 = Vector(-1.0, 0.0, -t) / s;
+	Vector v8 = Vector(0.0, t, 1.0) / s;
+	Vector v9 = Vector(0.0, -t, 1.0) / s;
+	Vector v10 = Vector(0.0, t, -1.0) / s;
+	Vector v11 = Vector(0.0, -t, -1.0) / s;
     
-    // create the 20 triangles
-	MathVector *f; 
-	f = new MathVector[3]; f[0] = v0; f[1] = v8; f[2] = v4; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v1; f[1] = v10; f[2] = v7; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v2; f[1] = v9; f[2] = v11; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v7; f[1] = v3; f[2] = v1; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v0; f[1] = v5; f[2] = v10; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v3; f[1] = v9; f[2] = v6; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v3; f[1] = v11; f[2] = v9; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v8; f[1] = v6; f[2] = v4; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v2; f[1] = v4; f[2] = v9; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v3; f[1] = v7; f[2] = v11; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v4; f[1] = v2; f[2] = v0; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v9; f[1] = v4; f[2] = v6; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v2; f[1] = v11; f[2] = v5; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v0; f[1] = v10; f[2] = v8; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v5; f[1] = v0; f[2] = v2; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v10; f[1] = v5; f[2] = v7; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v1; f[1] = v6; f[2] = v8; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v1; f[1] = v8; f[2] = v10; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v6; f[1] = v1; f[2] = v3; triangles.push_back(f);
-	f = new MathVector[3]; f[0] = v11; f[1] = v7; f[2] = v5; triangles.push_back(f);
+	// create the 20 triangles
+	Vector *f; 
+	f = new Vector[3]; f[0] = v0; f[1] = v8; f[2] = v4; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v1; f[1] = v10; f[2] = v7; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v2; f[1] = v9; f[2] = v11; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v7; f[1] = v3; f[2] = v1; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v0; f[1] = v5; f[2] = v10; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v3; f[1] = v9; f[2] = v6; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v3; f[1] = v11; f[2] = v9; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v8; f[1] = v6; f[2] = v4; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v2; f[1] = v4; f[2] = v9; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v3; f[1] = v7; f[2] = v11; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v4; f[1] = v2; f[2] = v0; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v9; f[1] = v4; f[2] = v6; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v2; f[1] = v11; f[2] = v5; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v0; f[1] = v10; f[2] = v8; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v5; f[1] = v0; f[2] = v2; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v10; f[1] = v5; f[2] = v7; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v1; f[1] = v6; f[2] = v8; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v1; f[1] = v8; f[2] = v10; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v6; f[1] = v1; f[2] = v3; triangles.push_back(f);
+	f = new Vector[3]; f[0] = v11; f[1] = v7; f[2] = v5; triangles.push_back(f);
 
 	// subdivision
 	for (int d = 0; d < degree; d++)
@@ -1319,25 +823,25 @@ int GroupwiseRegistration::icosahedron(int degree)
 		int nFaces = triangles.size();
 		for (int i = 0 ; i < nFaces; i++)
 		{
-			MathVector *f = triangles[i];
-			MathVector a = f[0], b = f[1], c = f[2];
-			MathVector v1 = a + b;
-			MathVector v2 = c + a;
-			MathVector v3 = b + c;
+			Vector *f = triangles[i];
+			Vector a = f[0], b = f[1], c = f[2];
+			Vector v1 = a + b;
+			Vector v2 = c + a;
+			Vector v3 = b + c;
 			// normalization
 			v1.unit(); v2.unit(); v3.unit();
 			f[0] = v1; f[1] = v3; f[2] = v2; // overwrite the original
-			/*MathVector f1[3] = {a, v1, v2}; triangles.push_back(f1);
-			MathVector f2[3] = {c, v2, v3}; triangles.push_back(f2);
-			MathVector f3[3] = {b, v3, v1}; triangles.push_back(f3);*/
-			MathVector *f1 = new MathVector[3]; f1[0] = a; f1[1] = v1; f1[2] = v2; triangles.push_back(f1);
-			MathVector *f2 = new MathVector[3]; f2[0] = c; f2[1] = v2; f2[2] = v3; triangles.push_back(f2);
-			MathVector *f3 = new MathVector[3]; f3[0] = b; f3[1] = v3; f3[2] = v1; triangles.push_back(f3);
+			/*Vector f1[3] = {a, v1, v2}; triangles.push_back(f1);
+			Vector f2[3] = {c, v2, v3}; triangles.push_back(f2);
+			Vector f3[3] = {b, v3, v1}; triangles.push_back(f3);*/
+			Vector *f1 = new Vector[3]; f1[0] = a; f1[1] = v1; f1[2] = v2; triangles.push_back(f1);
+			Vector *f2 = new Vector[3]; f2[0] = c; f2[1] = v2; f2[2] = v3; triangles.push_back(f2);
+			Vector *f3 = new Vector[3]; f3[0] = b; f3[1] = v3; f3[2] = v1; triangles.push_back(f3);
 		}
 	}
 	for (int i = 0; i < triangles.size(); i++)
 	{
-		MathVector *f = triangles[i];
+		Vector *f = triangles[i];
 		for (int j = 0; j < 3; j++)
 			vertices.push_back(f[j]);
 	}
@@ -1350,31 +854,13 @@ int GroupwiseRegistration::icosahedron(int degree)
 		p[0] = vertices[i][0];
 		p[1] = vertices[i][1];
 		p[2] = vertices[i][2];
-		m_depthvar.push_back(p);
+		m_propertySamples.push_back(p);
 	}
 
-	return m_depthvar.size();
+	return m_propertySamples.size();
 }
 
-void GroupwiseRegistration::saveLDeformation(char *filename)
-{
-	FILE *fp = fopen(filename, "w");
-	for (int i = 0; i < m_entropyList.size(); i++)
-	{
-		int id = m_entropyList[i];
-		int nSamples = m_entropy[id].samples.size();
-		for (int j = 0; j < nSamples; j++)
-		{
-			float v[3], *p = m_entropy[id].p;
-			int subj = m_entropy[id].samples[j]->subject;
-			reconsCoord(m_entropy[id].samples[j]->p, v, m_entropy[id].samples[j]->Y, m_spharm[subj].coeff, m_spharm[subj].degree, m_spharm[subj].pole);
-			fprintf(fp, "%f %f %f %f %f %f %f\n", p[0], p[1], p[2], v[0], v[1], v[2], (float)(m_entropy[id].samples[j]->subject + 1));
-		}
-	}
-	fclose(fp);
-}
-
-void GroupwiseRegistration::saveLCoeff(char *filename, int id)
+void GroupwiseRegistration::saveCoeff(const char *filename, int id)
 {
 	FILE *fp = fopen(filename, "w");
 	fprintf(fp, "%f %f %f\n", m_spharm[id].pole[0], m_spharm[id].pole[1], m_spharm[id].pole[2]);
