@@ -26,3 +26,5 @@ make
 
 
 ## Licence
+
+See LICENSE.txt for information on using and contributing.
