@@ -58,8 +58,8 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
       -DCMAKE_INSTALL_PREFIX:PATH=${EXTERNAL_BINARY_DIRECTORY}/${proj}-install
     )
   ### --- End Project specific additions
-  set(${proj}_REPOSITORY "${git_protocol}://github.com/pdedumast/MeshLib.git")
-  set(${proj}_GIT_TAG 8b543b6b99b8f4e5200179a21c6180592609365a)
+  set(${proj}_REPOSITORY "${git_protocol}://github.com/NIRALUser/MeshLib.git")
+  set(${proj}_GIT_TAG 477e4baf00e0b5d285f5d8f43eec77c3da22e8e7)
   ExternalProject_Add(${proj}
     GIT_REPOSITORY ${${proj}_REPOSITORY}
     GIT_TAG ${${proj}_GIT_TAG}

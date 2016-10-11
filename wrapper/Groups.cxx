@@ -53,7 +53,7 @@ void getTrimmedList(vector<string> &list, const vector<string> &name)
 int main(int argc, char *argv[])
 {
     PARSE_ARGS;
-    
+
     if (argc == 1)
     {
         cout << "Usage: " << argv[0] << " --help" << endl;
@@ -156,17 +156,23 @@ int main(int argc, char *argv[])
     cout << "Coefficient: " << nCoeff << endl;				for (int i = 0; i < nCoeff; i++) cout << coeff[i] << endl;
     cout << "Surface: " << nSurf << endl;					for (int i = 0; i < nSurf; i++) cout << surf[i] << endl;
     
-    GroupwiseRegistration groups(sphere, nSubj, property, nProperties / nSubj, output, weight, degree, landmark, weightLoc, coeff, surf, maxIter);
-    groups.run();
+    try{
+        GroupwiseRegistration groups(sphere, nSubj, property, nProperties / nSubj, output, weight, degree, landmark, weightLoc, coeff, surf, maxIter);
+        groups.run();
+        
+        // delete memory allocation
+        delete [] property;
+        delete [] sphere;
+        delete [] output;
+        delete [] landmark;
+        delete [] coeff;
+        delete [] surf;
+        delete [] weight;    
+    }catch(exception e){
+
+        cerr<<e.what()<<endl;
+    }
     
-    // delete memory allocation
-    delete [] property;
-    delete [] sphere;
-    delete [] output;
-    delete [] landmark;
-    delete [] coeff;
-    delete [] surf;
-    delete [] weight;
     
     return EXIT_SUCCESS;
 }
