@@ -65,11 +65,16 @@ option(USE_SYSTEM_SlicerExecutionModel "Build using an externally defined versio
 option(USE_SYSTEM_MeshLib "Build using an externally defined version of MeshLib" OFF)
 option(USE_SYSTEM_LAPACK "Build using an externally defined version of LAPACK" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
+option(BUILD_SURFREMESH "Build SurfRemesh" OFF)
 #------------------------------------------------------------------------------
 # ${LOCAL_PROJECT_NAME} dependency list
 #------------------------------------------------------------------------------
 
-set(${LOCAL_PROJECT_NAME}_DEPENDENCIES ITKv4 SlicerExecutionModel MeshLib LAPACK)
+if(NOT BUILD_SURFREMESH)
+  set(${LOCAL_PROJECT_NAME}_DEPENDENCIES ITKv4 SlicerExecutionModel MeshLib LAPACK)
+else()
+  set(${LOCAL_PROJECT_NAME}_DEPENDENCIES ITKv4 SlicerExecutionModel MeshLib LAPACK SurfRemesh)
+endif()
 
 
 #-----------------------------------------------------------------------------
