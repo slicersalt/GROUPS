@@ -44,22 +44,13 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
   ### --- Project specific additions here
   set(${proj}_CMAKE_OPTIONS
       #-DITK_DIR:PATH=${ITK_DIR}
-      #-DSlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY:PATH=${BRAINSTools_CLI_RUNTIME_OUTPUT_DIRECTORY}
-      #-DSlicerExecutionModel_DEFAULT_CLI_LIBRARY_OUTPUT_DIRECTORY:PATH=${BRAINSTools_CLI_LIBRARY_OUTPUT_DIRECTORY}
-      #-DSlicerExecutionModel_DEFAULT_CLI_ARCHIVE_OUTPUT_DIRECTORY:PATH=${BRAINSTools_CLI_ARCHIVE_OUTPUT_DIRECTORY}
-      #-DSlicerExecutionModel_DEFAULT_CLI_INSTALL_RUNTIME_DESTINATION:STRING=${BRAINSTools_CLI_INSTALL_RUNTIME_DESTINATION}
-      #-DSlicerExecutionModel_DEFAULT_CLI_INSTALL_LIBRARY_DESTINATION:STRING=${BRAINSTools_CLI_INSTALL_LIBRARY_DESTINATION}
-      #-DSlicerExecutionModel_DEFAULT_CLI_INSTALL_ARCHIVE_DESTINATION:STRING=${BRAINSTools_CLI_INSTALL_ARCHIVE_DESTINATION}
-      #-DSlicerExecutionModel_LIBRARY_PROPERTIES:STRING=${Slicer_LIBRARY_PROPERTIES}
-      #-DSlicerExecutionModel_INSTALL_BIN_DIR:PATH=bin
-      #-DSlicerExecutionModel_INSTALL_LIB_DIR:PATH=lib
-      #-DSlicerExecutionModel_INSTALL_SHARE_DIR:PATH=${Slicer_INSTALL_ROOT}share/${SlicerExecutionModel}
-      #-DSlicerExecutionModel_INSTALL_NO_DEVELOPMENT:BOOL=${Slicer_INSTALL_NO_DEVELOPMENT}
+      -DSlicerExecutionModel_DIR:PATH=${SlicerExecutionModel_DIR}
+      -DMeshLib_DIR:PATH=${MeshLib_DIR}
       -DCMAKE_INSTALL_PREFIX:PATH=${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/
     )
   ### --- End Project specific additions
-  set(${proj}_REPOSITORY "${git_protocol}://github.com/pdedumast/SurfRemesh.git")
-  set(${proj}_GIT_TAG 25ff7685d1e49fe6364f1c7415125ffe37acd27f)
+  set(${proj}_REPOSITORY "${git_protocol}://github.com/NIRALUser/SurfRemesh.git")
+  set(${proj}_GIT_TAG release)
   ExternalProject_Add(${proj}
     GIT_REPOSITORY ${${proj}_REPOSITORY}
     GIT_TAG ${${proj}_GIT_TAG}
