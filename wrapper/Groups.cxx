@@ -26,7 +26,9 @@ void getListFile(string path, vector<string> &list, const string &suffix)
         {
             string filename = entry->d_name;
             if (filename.size() >= suffix.size() && equal(suffix.rbegin(), suffix.rend(), filename.rbegin()))
-            list.push_back(path + "/" + filename);
+            {
+                list.push_back(path + "/" + filename);
+            }
         }
     }
     closedir(dir);
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
     if (!dirSurf.empty() && listSurf.empty()) getListFile(dirSurf, listSurf, "vtk");
     if (!dirLandmark.empty() && listLandmark.empty()) getListFile(dirLandmark, listLandmark, "txt");
     if (!dirCoeff.empty() && listCoeff.empty()) getListFile(dirCoeff, listCoeff, "coeff");
-    
+
     // subject names
     int nSubj = listSphere.size();
     vector<string> subjName;
@@ -75,7 +77,17 @@ int main(int argc, char *argv[])
         for (int i = 0; i < nSubj; i++)
         {
             int pivot = listSphere[i].rfind('/') + 1;
-            string name = listSphere[i].substr(pivot, listSphere[i].length() - 4 - pivot);
+
+            std::string suffixe = "_surf_para.vtk";
+            std::string end = listSphere[i].substr(listSphere[i].length() - suffixe.length(), listSphere[i].length() );
+            
+            string name;
+            if (end == suffixe)
+                name = listSphere[i].substr(pivot, listSphere[i].length() - pivot - suffixe.length());
+            else
+                name = listSphere[i].substr(pivot, listSphere[i].length() - 4 - pivot - 5);
+
+            std::cout<<name<<std::endl;
             pivot = name.find('.');
             if (pivot == string::npos) pivot = name.length();
             subjName.push_back(name.substr(0, pivot));
@@ -93,7 +105,7 @@ int main(int argc, char *argv[])
     if (listWeight.empty())
     for (int i = 0; i < listProperty.size() / nSubj; i++)
     listWeight.push_back(1);
-    
+
     int nProperties = listProperty.size();
     int nOutput = listOutput.size();
     int nWeight = listWeight.size();
