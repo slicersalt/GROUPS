@@ -12,6 +12,9 @@ include_directories(${LAPACKE_INCLUDE_DIRS})
 find_package(SlicerExecutionModel REQUIRED)
 find_package(MeshLib REQUIRED)
 
+find_package(VTK REQUIRED)
+include(${VTK_USE_FILE})
+
 include(${SlicerExecutionModel_USE_FILE})
 include(${GenerateCLP_USE_FILE})
 include_directories(Mesh GroupwiseRegistration)

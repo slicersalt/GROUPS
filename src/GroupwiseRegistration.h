@@ -24,6 +24,7 @@ class GroupwiseRegistration
 public:
 	GroupwiseRegistration(void);
 	GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg = 5, const char **landmark = NULL, float weightLoc = 0, const char **coeff = NULL, const char **surf = NULL, int maxIter = 50000);
+	GroupwiseRegistration(vector<string> sphere, vector<string> surf, vector<string> propertiesnames, vector<string> outputcoeff, vector<double> weight, double weightLoc, int deg, vector<string> inputcoeff, int maxIter);
 	~GroupwiseRegistration(void);
 	void run(void);
 	void saveCoeff(const char *filename, int id);
@@ -32,10 +33,13 @@ public:
 private:
 	// class members for initilaization
 	void init(const char **sphere, const char **property, const float *weight, const char **landmark, float weightLoc, const char **coeff, const char **surf, int samplingDegree = 3);
+	void init(vector<string> sphere,vector<string> surf, vector<string> propertiesnames, vector<double> weight, double weightLoc, vector<string> inputcoeff, double m_SamplingDegree);
 	void initSphericalHarmonics(int subj, const char **coeff);
+	void initSphericalHarmonics(int subj, vector<string> coeff);
 	void initTriangleFlipping(int subj);
 	void initProperties(int subj, const char **property, int nHeaderLines);
 	void initLandmarks(int subj, const char **landmark);
+	void initPropertiesAndLandmarks(int subj, string surfacename, vector<string> propertyNames);
 	int icosahedron(int degree);
 
 	// entropy computation
@@ -87,6 +91,8 @@ private:
 	int m_maxIter;
 	int m_degree;
 	int m_degree_inc;	// incremental degree
+	int m_SamplingDegree;
+	bool m_UseLandmarks;
 	
 	float *m_coeff;
 	float *m_coeff_prev_step;	// previous coefficients
@@ -108,6 +114,7 @@ private:
 
 	// output list
 	const char **m_output;
+	vector<string> m_Output;
 };
 
 class cost_function

@@ -17,6 +17,13 @@
 #include <lapacke.h>
 #include "newuoa.h"
 
+#include <vtkPolyData.h>
+#include <vtkPolyDataReader.h>
+#include <vtkDataArray.h>
+#include <vtkDoubleArray.h>
+#include <vtkSmartPointer.h>
+#include <vtkPointData.h>
+
 GroupwiseRegistration::GroupwiseRegistration(void)
 {
 	m_maxIter = 0;
@@ -27,6 +34,7 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 	m_output = NULL;
 	m_degree = 0;
 	m_degree_inc = 1;	// starting degree for the incremental optimization
+	m_UseLandmarks = false;
 }
 
 GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg, const char **landmark, float weightLoc, const char **coeff, const char **surf, int maxIter)
@@ -40,6 +48,29 @@ GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, con
 	m_degree = deg;
 	m_degree_inc = 3;	// starting degree for the incremental optimization
 	init(sphere, property, weight, landmark, weightLoc, coeff, surf, 4);
+	m_UseLandmarks = false;
+}
+
+GroupwiseRegistration::GroupwiseRegistration(vector<string> sphere, vector<string> surf, vector<string> propertiesnames, vector<string> outputcoeff, vector<double> weight, double weightLoc, int deg, vector<string> inputcoeff, int maxIter)
+{
+	m_maxIter = maxIter;
+	m_nSubj = sphere.size();
+	m_mincost = FLT_MAX;
+	m_nProperties = propertiesnames.size();
+	//For backward compatibility, we substract 1 from the number of properties and make sure that the landmarks (now included in properties) are in the array.
+	for(int i = 0; i < propertiesnames.size(); i++){
+		if(propertiesnames[i].compare("landmarks") || propertiesnames[i].compare("LANDMARKS")){
+			m_nProperties--;
+			m_UseLandmarks = true;
+			break;
+		}
+	}
+	m_nSurfaceProperties = (weightLoc > 0)? 3: 0;
+	m_Output = outputcoeff;
+	m_degree = deg;
+	m_degree_inc = 3;	// starting degree for the incremental optimization
+	m_SamplingDegree = 4;
+	init(sphere, surf, propertiesnames, weight, weightLoc, inputcoeff, m_SamplingDegree);
 }
 
 GroupwiseRegistration::~GroupwiseRegistration(void)
@@ -83,6 +114,151 @@ void GroupwiseRegistration::run(void)
 		saveCoeff(m_output[subj], subj);
 	}
 	cout << "All done!\n";
+}
+
+void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, vector<string> propertiesnames, vector<double> weight, double weightLoc, vector<string> inputcoeff, double m_SamplingDegree){
+	m_spharm = new spharm[m_nSubj];	// spharm info
+	m_updated = new bool[m_nSubj];	// AABB tree cache
+	m_eig = new float[m_nSubj];		// eigenvalues
+	m_work = new float[m_nSubj * 3 - 1];	// workspace for eigenvalue computation
+	m_csize = (m_degree + 1) * (m_degree + 1) * m_nSubj; // total # of coefficients
+	m_coeff = new float[m_csize * 2];	// how many coefficients are required: the sum of all possible coefficients
+	m_coeff_prev_step = new float[m_csize * 2];	// the previous coefficients
+
+	// set all the coefficient to zeros
+	memset(m_coeff, 0, sizeof(float) * m_csize * 2);
+	memset(m_coeff_prev_step, 0, sizeof(float) * m_csize * 2);
+	memset(m_updated, 0, sizeof(bool) * m_nSubj);
+	
+	cout << "Initialzation of subject information\n";
+
+	for (int subj = 0; subj < m_nSubj; subj++)
+	{
+		cout << "Subject " << subj << " - " << sphere[subj] << endl;
+		
+		// spehre and surface information
+		cout << "-Sphere information\n";
+		m_spharm[subj].sphere = new Mesh();
+		if (sphere.size() > 0)
+		{
+			m_spharm[subj].sphere->openFile(sphere[subj].c_str());
+			// make sure a unit sphere
+			m_spharm[subj].sphere->centering();
+			for (int i = 0; i < m_spharm[subj].sphere->nVertex(); i++)
+			{
+				Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);	// vertex information on the sphere
+				const float *v0 = v->fv();
+				Vector V(v0); V.unit();
+				v->setVertex(V.fv());
+			}
+		}
+		else cout << " Fatal error: No sphere mapping is provided!\n";
+		
+		// previous spherical harmonic deformation fields
+		cout << "-Spherical harmonics information\n";
+		initSphericalHarmonics(subj, inputcoeff);
+		updateDeformation(subj);	// deform the sphere for efficient AABB tree creation
+		
+		if (m_nSurfaceProperties > 0)
+		{
+			cout << "-Location information\n";
+			m_spharm[subj].surf = new Mesh();
+			m_spharm[subj].surf->openFile(surf[subj].c_str());
+		}
+		else m_spharm[subj].surf = NULL;
+		
+		if (m_nProperties + m_nSurfaceProperties > 0)
+		{
+			// AABB tree construction for speedup computation
+			cout << "-AABB tree construction\n";
+			m_spharm[subj].tree = new AABB(m_spharm[subj].sphere);
+		}
+		else m_spharm[subj].tree = NULL;
+		
+		// triangle flipping
+		cout << "-Triangle flipping\n";
+		initTriangleFlipping(subj);
+		
+		// property information
+		cout << "-Property and landmarks information\n";
+		initPropertiesAndLandmarks(subj, surf[subj], propertiesnames);
+		
+		cout << "----------" << endl;
+	}
+
+	// icosahedron subdivision for evaluation on properties: this generates uniform sampling points over the sphere - m_propertySamples
+	if (m_nProperties + m_nSurfaceProperties > 0) icosahedron(m_SamplingDegree);
+	// landmark information - the number of landamrks should be the same across subjects
+	if (m_UseLandmarks)
+	{
+		int nLandmark = m_spharm[0].landmark.size();
+		for (int subj = 0; subj < m_nSubj; subj++)
+			if (nLandmark != m_spharm[subj].landmark.size())
+				cout << " Fatal error: # of landamrks should be agreed!\n";
+	}
+
+	cout << "Computing weight terms\n";
+	int nLandmark = m_spharm[0].landmark.size() * 3;	// # of landmarks: we assume all the subject has the same number, which already is checked above.
+	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
+	
+	// weights for covariance matrix computation
+	int nTotalProperties = m_nProperties + m_nSurfaceProperties;	// if location information is provided, total number = # of property + 3 -> (x, y, z location)
+	m_feature_weight = new float[nLandmark + nSamples * nTotalProperties];
+	float landmarkWeight = (nLandmark > 0) ? (float)nSamples / (float)nLandmark: 0;	// based on the number ratio (balance between landmark and property)
+	float totalWeight = weightLoc;
+	for (int n = 0; n < m_nProperties; n++) totalWeight += weight[n];
+	landmarkWeight *= totalWeight;
+	if (landmarkWeight == 0) landmarkWeight = 1;
+	cout << "Total properties: " << nTotalProperties << endl;
+	cout << "Sampling points: " << nSamples << endl;
+
+	// assign the weighting factors
+	for (int i = 0; i < nLandmark; i++) m_feature_weight[i] = landmarkWeight;
+	for (int n = 0; n < m_nProperties; n++)
+		for (int i = 0; i < nSamples; i++)
+			m_feature_weight[nLandmark + nSamples * n + i] = weight[n];
+	// weight for location information
+	for (int n = 0; n < m_nSurfaceProperties; n++)
+		for (int i = 0; i < nSamples; i++)
+			m_feature_weight[nLandmark + nSamples * (m_nProperties + n) + i] = weightLoc;
+	
+	if (nLandmark > 0) cout << "Landmark weight: " << landmarkWeight << endl;
+	if (m_nProperties > 0)
+	{
+		cout << "Property weight: ";
+		for (int i = 0; i < m_nProperties; i++) cout << weight[i] << " ";
+		cout << endl;
+	}
+	if (weightLoc > 0) cout << "Location weight: " << weightLoc << endl;
+	
+	cout << "Initialization of work space\n";
+	m_cov = new float[m_nSubj * m_nSubj];	// convariance matrix defined in the duel space with dimensions: nSubj x nSubj
+	m_feature = new float[m_nSubj * (nLandmark + nSamples * nTotalProperties)];	// the entire feature vector map for optimization
+
+	// AABB tree cache for each subject: this stores the closest face of the sampling point to the corresponding face on the input sphere model
+	for (int subj = 0; subj < m_nSubj; subj++)
+	{
+		if (nTotalProperties > 0)
+		{
+			m_spharm[subj].tree_cache = new int[nSamples];
+			for (int i = 0; i < nSamples; i++)
+				m_spharm[subj].tree_cache[i] = -1;	// initially, set to -1 (invalid index)
+		}
+		else m_spharm[subj].tree_cache = NULL;
+	}
+
+	// inital coefficients for the previous step
+	memcpy(m_coeff_prev_step, m_coeff, sizeof(float) * m_csize * 2);
+
+	cout << "Feature vector creation\n";
+	// set all the tree needs to be updated
+	memset(m_updated, 0, sizeof(bool) * m_nSubj);
+
+	// feature update
+	if (nLandmark > 0) updateLandmark(); // update landmark
+	if (nSamples > 0) updateProperties(); // update properties
+
+	cout << "Initialization done!" << endl;
 }
 
 void GroupwiseRegistration::init(const char **sphere, const char **property, const float *weight, const char **landmark, float weightLoc, const char **coeff, const char **surf, int samplingDegree)
@@ -165,7 +341,7 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 	// icosahedron subdivision for evaluation on properties: this generates uniform sampling points over the sphere - m_propertySamples
 	if (m_nProperties + m_nSurfaceProperties > 0) icosahedron(samplingDegree);
 	// landmark information - the number of landamrks should be the same across subjects
-	if (landmark != NULL)
+	if (m_UseLandmarks)
 	{
 		int nLandmark = m_spharm[0].landmark.size();
 		for (int subj = 0; subj < m_nSubj; subj++)
@@ -235,6 +411,62 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 	if (nSamples > 0) updateProperties(); // update properties
 
 	cout << "Initialization done!" << endl;
+}
+
+void GroupwiseRegistration::initSphericalHarmonics(int subj, vector<string> coeff)
+{
+	// spherical harmonics information
+	int n = (m_degree + 1) * (m_degree + 1);	// total number of coefficients (this must be the same across all the subjects at the end of this program)
+	// new memory allocation for coefficients
+	m_spharm[subj].coeff = new float*[n * 2];
+	m_spharm[subj].coeff_prev_step = new float*[n * 2];
+	
+	for (int i = 0; i < n; i++)
+	{
+		// store coefficients by asc order (low to high frequencies)
+		m_spharm[subj].coeff[i] = &m_coeff[m_nSubj * 2 * i + subj * 2];	// latitudes
+		m_spharm[subj].coeff[n + i] = &m_coeff[m_nSubj * 2 * i + subj * 2 + 1];	// longitudes
+		m_spharm[subj].coeff_prev_step[i] = &m_coeff_prev_step[m_nSubj * 2 * i + subj * 2];	// latitudes
+		m_spharm[subj].coeff_prev_step[n + i] = &m_coeff_prev_step[m_nSubj * 2 * i + subj * 2 + 1];	// longitudes
+	}
+
+	if (coeff.size() > 0)	// previous spherical harmonics information
+	{
+		FILE *fp = fopen(coeff[subj].c_str(),"r");
+		fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]);	// optimal pole information
+		fscanf(fp, "%d", &m_spharm[subj].degree);	// previous deformation field degree
+
+		if (m_spharm[subj].degree > m_degree) m_spharm[subj].degree = m_degree;	// if the previous degree is larger than desired one, just crop it.
+
+		// load previous coefficient information
+		for (int i = 0; i < (m_spharm[subj].degree + 1) * (m_spharm[subj].degree + 1); i++)
+			fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]);
+		fclose(fp);
+	}
+	else	// no spherical harmonic information is provided
+	{
+		// just set the pole to [0, 0, 1]
+		m_spharm[subj].pole[0] = 0;
+		m_spharm[subj].pole[1] = 0;
+		m_spharm[subj].pole[2] = 1;
+	}
+	m_spharm[subj].degree = m_degree;
+	
+	// build spherical harmonic basis functions for each vertex
+	int nVertex = m_spharm[subj].sphere->nVertex();
+	for (int i = 0; i < nVertex; i++)
+	{
+		// vertex information
+		point *p = new point();	// new spherical information allocation
+		Vertex *v = (Vertex *)m_spharm[subj].sphere->vertex(i);	// vertex information on the sphere
+		const float *v0 = v->fv();
+		p->Y = new float[(m_degree + 1) * (m_degree + 1)];
+		p->p[0] = v0[0]; p->p[1] = v0[1]; p->p[2] = v0[2];
+		p->id = i;
+		p->subject = subj;
+		SphericalHarmonics::basis(m_degree, p->p, p->Y);
+		m_spharm[subj].vertex.push_back(p);
+	}
 }
 
 void GroupwiseRegistration::initSphericalHarmonics(int subj, const char **coeff)
@@ -348,6 +580,69 @@ void GroupwiseRegistration::initProperties(int subj, const char **property, int 
 		cout << "---Min/Max: " << m_spharm[subj].minProperty[i] << ", " << m_spharm[subj].maxProperty[i] << endl;
 		cout << "---Mean/Stdev: " << m_spharm[subj].meanProperty[i] << ", " << m_spharm[subj].sdevProperty[i] << endl;
 	}
+}
+
+void GroupwiseRegistration::initPropertiesAndLandmarks(int subj, string surfacename, vector<string> propertyNames){
+
+
+	vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
+	reader->SetFileName(surfacename.c_str());
+	reader->Update();
+
+	vtkSmartPointer<vtkPolyData> surface = reader->GetOutput();
+
+	int nVertex = surface->GetNumberOfPoints();
+
+	for (int i = 0; i < propertyNames.size(); i++)	// property information
+	{
+		if(propertyNames[i].compare("landmarks") || propertyNames[i].compare("LANDMARKS")){
+			vtkDoubleArray* arr = vtkDoubleArray::SafeDownCast(surface->GetPointData()->GetArray(propertyNames[i].c_str()));
+
+			if(arr != NULL){
+				for (int j = 0; j < arr->GetSize(); j++){
+					int id = (int)arr->GetValue(j);
+					if(id >= 0 ){
+						const float *v = m_spharm[subj].sphere->vertex(id)->fv();
+			
+						float *Y = new float[(m_degree + 1) * (m_degree + 1)];
+						point *p = new point();
+						p->p[0] = v[0]; p->p[1] = v[1]; p->p[2] = v[2];
+						SphericalHarmonics::basis(m_degree, p->p, Y);
+						p->subject = subj;
+						p->Y = Y;
+						p->id = id;
+
+						m_spharm[subj].landmark.push_back(p);
+					}
+					
+					
+				}
+			}else{
+				cout<<"TODO: do for field data"<<endl;
+			}
+			
+		}else{
+			vtkDoubleArray* arr = vtkDoubleArray::SafeDownCast(surface->GetPointData()->GetArray(propertyNames[i].c_str()));
+
+			for (int j = 0; j < arr->GetSize(); j++){
+				m_spharm[subj].property[nVertex * i + j] = arr->GetValue(j);
+			}
+		}
+	}
+
+	// find the best statistics across subjects
+	
+	for (int i = 0; i < propertyNames.size(); i++)
+	{
+		cout << "--Property " << propertyNames[i] << endl;
+		m_spharm[subj].meanProperty[i] = Statistics::mean(&m_spharm[subj].property[nVertex * i], nVertex);
+		m_spharm[subj].maxProperty[i] = Statistics::max(&m_spharm[subj].property[nVertex * i], nVertex);
+		m_spharm[subj].minProperty[i] = Statistics::min(&m_spharm[subj].property[nVertex * i], nVertex);
+		m_spharm[subj].sdevProperty[i] = sqrt(Statistics::var(&m_spharm[subj].property[nVertex * i], nVertex));
+		cout << "---Min/Max: " << m_spharm[subj].minProperty[i] << ", " << m_spharm[subj].maxProperty[i] << endl;
+		cout << "---Mean/Stdev: " << m_spharm[subj].meanProperty[i] << ", " << m_spharm[subj].sdevProperty[i] << endl;
+	}
+
 }
 
 void GroupwiseRegistration::initTriangleFlipping(int subj)
