@@ -23,6 +23,7 @@
 #include <vtkDoubleArray.h>
 #include <vtkSmartPointer.h>
 #include <vtkPointData.h>
+#include <vtkPointLocator.h>
 
 GroupwiseRegistration::GroupwiseRegistration(void)
 {
@@ -333,11 +334,13 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 		if (landmark != NULL)
 		{
 			cout << "-Landmark information\n";
-			initLandmarks(subj, landmark);
+			initLandmarks(subj, landmark, surf);
+			// m_UseLandmarks = true
 		}
 		cout << "----------" << endl;
 	}
 
+	cout << " state m_UseLandmarks :: " << m_UseLandmarks << endl << endl;
 	// icosahedron subdivision for evaluation on properties: this generates uniform sampling points over the sphere - m_propertySamples
 	if (m_nProperties + m_nSurfaceProperties > 0) icosahedron(samplingDegree);
 	// landmark information - the number of landamrks should be the same across subjects
@@ -667,19 +670,121 @@ void GroupwiseRegistration::initTriangleFlipping(int subj)
 	}
 }
 
-void GroupwiseRegistration::initLandmarks(int subj, const char **landmark)
-{
-	FILE *fp = fopen(landmark[subj], "r");
-	int i = 0;
-	while (!feof(fp))
-	{
-		// indices for corresponding points
-		int srcid;
+// void GroupwiseRegistration::initLandmarks(int subj, const char **landmark)
+// {
+// 	FILE *fp = fopen(landmark[subj], "r");
+// 	int i = 0;
+// 	while (!feof(fp))
+// 	{
+// 		// indices for corresponding points
+// 		int srcid;
 
-		// landmark information
-		int id;
-		if (fscanf(fp, "%d", &id) == -1) break;
-		const float *v = m_spharm[subj].sphere->vertex(id)->fv();
+// 		// landmark information
+// 		int id;
+// 		if (fscanf(fp, "%d", &id) == -1) break;
+// 		const float *v = m_spharm[subj].sphere->vertex(id)->fv();
+		
+// 		float *Y = new float[(m_degree + 1) * (m_degree + 1)];
+// 		point *p = new point();
+// 		p->p[0] = v[0]; p->p[1] = v[1]; p->p[2] = v[2];
+// 		SphericalHarmonics::basis(m_degree, p->p, Y);
+// 		p->subject = subj;
+// 		p->Y = Y;
+// 		p->id = id;
+
+// 		m_spharm[subj].landmark.push_back(p);
+		
+// 		i++;
+// 	}
+// 	fclose(fp);
+// }
+
+// InitLandmark while they are stored in the vtk file!
+void GroupwiseRegistration::initLandmarks(int subj, const char **landmark, const char **surf)
+{
+	// cout << " J'entre dans initlandmarks " << endl;
+	#define NB_LINES 250
+	#define NB_WORDS 250
+
+	std::fstream fcsvfile(landmark[subj]);
+	std::string line;
+	std::string mot;
+	std::string words[NB_LINES][NB_WORDS]; // !!!! WARNING DEFINE AND TO PROTECT IF SUPERIOR TO 20
+	int i,j;
+	int* landmarkPids;
+	int NbLandmarks;
+
+	// Get all surface data from the file
+	vtkSmartPointer<vtkPolyDataReader> surfacereader = vtkSmartPointer<vtkPolyDataReader>::New();
+	surfacereader->SetFileName(surf[subj]);
+	surfacereader->Update();
+
+	// Build a locator
+	vtkPointLocator *pointLocator = vtkPointLocator::New();
+	pointLocator->SetDataSet(surfacereader->GetOutput());
+	pointLocator->BuildLocator();
+
+	if(fcsvfile)
+	{
+		getline(fcsvfile, line);
+		fcsvfile>>mot;
+		while(mot=="#")
+		{
+			if(getline(fcsvfile, line))
+				fcsvfile>>mot;
+			else
+				mot="#";
+		}
+
+		i=0;
+		do
+		{
+			std::size_t pos_end;// = mot.find(",,");
+			std::size_t pos1;
+			j=0;
+			do
+			{
+				std::size_t pos0 = 0;
+				pos1 = mot.find(',');
+				pos_end = mot.find(",,");
+				words[i][j] = mot.substr(pos0, pos1-pos0);
+				mot = mot.substr(pos1+1);
+				j++;
+			}
+			while(pos1+1<pos_end);
+			i++;
+		}
+		while(fcsvfile>>mot);
+
+		NbLandmarks = i;
+        landmarkPids = new int[NbLandmarks]; 
+        
+		for (int i = 0; i < NbLandmarks; i++)
+		{
+			double x = atof(words[i][1].c_str());
+			double y = atof(words[i][2].c_str());
+			double z = atof(words[i][3].c_str());
+                        
+			// Find closest point
+			vtkIdType ptId;
+			double p[] = {0.0, 0.0, 0.0};
+			p[0] = x; p[1] = y; p[2] = z;
+			ptId = pointLocator->FindClosestPoint(p);
+			landmarkPids[i] = ptId;
+
+			std::cout << "landmark " << i << " position " << x << "," << y << "," << z << " and the corresponding Pid is " << landmarkPids[i] << std::endl;
+		}
+	}
+	else
+	{
+		std::cout<<"Error !";
+	}
+
+	std::cout << "NbLandmarks :: " << NbLandmarks << std::endl;
+	for (int i = 0; i < NbLandmarks; i++)
+	{
+		std::cout << "landmarkPids[i] :: " << landmarkPids[i] << std::endl;
+		const float *v = m_spharm[subj].sphere->vertex(landmarkPids[i])->fv();
 		
 		float *Y = new float[(m_degree + 1) * (m_degree + 1)];
 		point *p = new point();
@@ -687,14 +792,15 @@ void GroupwiseRegistration::initLandmarks(int subj, const char **landmark)
 		SphericalHarmonics::basis(m_degree, p->p, Y);
 		p->subject = subj;
 		p->Y = Y;
-		p->id = id;
+		p->id = landmarkPids[i];
 
 		m_spharm[subj].landmark.push_back(p);
-		
-		i++;
 	}
-	fclose(fp);
+
+	for (int j = 0; j < NbLandmarks; j ++)
+		std::cout << m_spharm[subj].landmark[j]->p[0] << " :: " << m_spharm[subj].landmark[j]->p[1] << " :: " << m_spharm[subj].landmark[j]->p[2] << std::endl; 
 }
+
 
 bool GroupwiseRegistration::updateCoordinate(const float *v0, float *v1, const float *Y, const float **coeff, float degree, const float *pole)
 {
@@ -887,7 +993,7 @@ void GroupwiseRegistration::updateProperties(void)
 {
 	int nLandmark = m_spharm[0].landmark.size();
 	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
-	
+
 	float err = 0;
 	for (int subj = 0; subj < m_nSubj; subj++)
 	{

@@ -39,6 +39,7 @@ private:
 	void initTriangleFlipping(int subj);
 	void initProperties(int subj, const char **property, int nHeaderLines);
 	void initLandmarks(int subj, const char **landmark);
+	void initLandmarks(int subj, const char **landmark, const char **surf);
 	void initPropertiesAndLandmarks(int subj, string surfacename, vector<string> propertyNames);
 	int icosahedron(int degree);
 

@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
     if (!dirSphere.empty() && listSphere.empty()) getListFile(dirSphere, listSphere, "vtk");// listSphere.erase(listSphere.begin() + 30, listSphere.begin() + listSphere.size());
     if (!dirProperty.empty() && listProperty.empty()) getListFile(dirProperty, listProperty, "txt");
     if (!dirSurf.empty() && listSurf.empty()) getListFile(dirSurf, listSurf, "vtk");
-    if (!dirLandmark.empty() && listLandmark.empty()) getListFile(dirLandmark, listLandmark, "txt");
+    if (!dirLandmark.empty() && listLandmark.empty()) getListFile(dirLandmark, listLandmark, "fcsv");
     if (!dirCoeff.empty() && listCoeff.empty()) getListFile(dirCoeff, listCoeff, "coeff");
 
     // subject names
@@ -78,22 +78,26 @@ int main(int argc, char *argv[])
         {
             int pivot = listSphere[i].rfind('/') + 1;
 
-            std::string suffixe = "_surf_para.vtk";
-            std::string end = listSphere[i].substr(listSphere[i].length() - suffixe.length(), listSphere[i].length() );
-            
-            string name;
-            if (end == suffixe)
-                name = listSphere[i].substr(pivot, listSphere[i].length() - pivot - suffixe.length());
-            else
-                name = listSphere[i].substr(pivot, listSphere[i].length() - 4 - pivot - 5);
+            std::string filename = listSphere[i].substr(pivot);
 
-            std::cout<<name<<std::endl;
-            pivot = name.find('.');
-            if (pivot == string::npos) pivot = name.length();
-            subjName.push_back(name.substr(0, pivot));
+            std::string name;
+            std::string suffixe_surf_para = "_pp_surf_para.vtk";
+            std::string suffixe_para = "_pp_para.vtk";
+            int suffixe_size;
+
+            
+            if ( filename.substr(filename.length() - suffixe_para.length()) == suffixe_para )        
+                suffixe_size = suffixe_para.length();
+
+            else if ( filename.substr(filename.length() - suffixe_surf_para.length()) == suffixe_surf_para )
+                suffixe_size = suffixe_surf_para.length();
+
+            name = filename.substr(0, filename.length() - suffixe_size);
+            
+            subjName.push_back(name);
         }
     }
-    //for (int i = 0; i < nSubj; i++) cout << subjName[i] << endl;
+    for (int i = 0; i < nSubj; i++) cout << subjName[i] << endl;
     if (listOutput.empty())
     for (int i = 0; i < nSubj; i++) listOutput.push_back(dirOutput + "/" + subjName[i] + ".coeff");
     
@@ -160,6 +164,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < nWeight; i++) weight[i] = listWeight[i];
     if (nWeight == 0) for (int i = 0; i < nProperties / nSubj; i++) weight[i] = 1;
     
+
     // display for lists of files
     cout << "Property: " << nProperties / nSubj << endl;	for (int i = 0; i < nProperties; i++) cout << property[i] << endl;
     cout << "Sphere: " << nSubj << endl;					for (int i = 0; i < nSubj; i++) cout << sphere[i] << endl;
