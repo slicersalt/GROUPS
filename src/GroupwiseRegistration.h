@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <iostream>
 #include <vector>
+#include <map>
 #include "Mesh.h"
 #include "AABB.h"
 
@@ -24,7 +25,7 @@ class GroupwiseRegistration
 public:
 	GroupwiseRegistration(void);
 	GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg = 5, const char **landmark = NULL, float weightLoc = 0, const char **coeff = NULL, const char **surf = NULL, int maxIter = 50000);
-	GroupwiseRegistration(vector<string> sphere, vector<string> surf, vector<string> propertiesnames, vector<string> outputcoeff, vector<double> weight, double weightLoc, int deg, vector<string> inputcoeff, int maxIter);
+	GroupwiseRegistration(vector<string> sphere, vector<string> surf, std::map<std::string, float> mapProperty, vector<string> outputcoeff, bool landmarksOn, double weightLoc, int deg, vector<string> inputcoeff, int maxIter);
 	~GroupwiseRegistration(void);
 	void run(void);
 	void saveCoeff(const char *filename, int id);
@@ -33,14 +34,15 @@ public:
 private:
 	// class members for initilaization
 	void init(const char **sphere, const char **property, const float *weight, const char **landmark, float weightLoc, const char **coeff, const char **surf, int samplingDegree = 3);
-	void init(vector<string> sphere,vector<string> surf, vector<string> propertiesnames, vector<double> weight, double weightLoc, vector<string> inputcoeff, double m_SamplingDegree);
+	void init(vector<string> sphere,vector<string> surf, std::map<std::string, float> mapProperty, double weightLoc, vector<string> inputcoeff, double m_SamplingDegree);
+
 	void initSphericalHarmonics(int subj, const char **coeff);
 	void initSphericalHarmonics(int subj, vector<string> coeff);
 	void initTriangleFlipping(int subj);
 	void initProperties(int subj, const char **property, int nHeaderLines);
-	void initLandmarks(int subj, const char **landmark);
+	// void initLandmarks(int subj, const char **landmark);
 	void initLandmarks(int subj, const char **landmark, const char **surf);
-	void initPropertiesAndLandmarks(int subj, string surfacename, vector<string> propertyNames);
+	void initPropertiesAndLandmarks(int subj, string surfacename, std::map<std::string, float> mapProperty);
 	int icosahedron(int degree);
 
 	// entropy computation

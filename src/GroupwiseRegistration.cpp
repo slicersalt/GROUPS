@@ -11,6 +11,7 @@
 *************************************************/
 
 #include <cstring>
+#include <iterator>
 #include <float.h>
 #include "GroupwiseRegistration.h"
 #include "SphericalHarmonics.h"
@@ -38,40 +39,42 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 	m_UseLandmarks = false;
 }
 
-GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg, const char **landmark, float weightLoc, const char **coeff, const char **surf, int maxIter)
-{
-	m_maxIter = maxIter;
-	m_nSubj = nSubj;
-	m_mincost = FLT_MAX;
-	m_nProperties = nProperties;
-	m_nSurfaceProperties = (weightLoc > 0)? 3: 0;
-	m_output = output;
-	m_degree = deg;
-	m_degree_inc = 3;	// starting degree for the incremental optimization
-	init(sphere, property, weight, landmark, weightLoc, coeff, surf, 4);
-	m_UseLandmarks = false;
-}
+// GroupwiseRegistration::GroupwiseRegistration(const char **sphere, int nSubj, const char **property, int nProperties, const char **output, const float *weight, int deg, const char **landmark, float weightLoc, const char **coeff, const char **surf, int maxIter)
+// {
+// 	m_maxIter = maxIter;
+// 	m_nSubj = nSubj;
+// 	m_mincost = FLT_MAX;
+// 	m_nProperties = nProperties;
+// 	m_nSurfaceProperties = (weightLoc > 0)? 3: 0;
+// 	m_output = output;
+// 	m_degree = deg;
+// 	m_degree_inc = 3;	// starting degree for the incremental optimization
+// 	init(sphere, property, weight, landmark, weightLoc, coeff, surf, 4);
+// 	m_UseLandmarks = false;
+// }
 
-GroupwiseRegistration::GroupwiseRegistration(vector<string> sphere, vector<string> surf, vector<string> propertiesnames, vector<string> outputcoeff, vector<double> weight, double weightLoc, int deg, vector<string> inputcoeff, int maxIter)
+GroupwiseRegistration::GroupwiseRegistration(vector<string> sphere, vector<string> surf, std::map<std::string, float> mapProperty, vector<string> outputcoeff, bool landmarksOn, double weightLoc, int deg, vector<string> inputcoeff, int maxIter)
 {
 	m_maxIter = maxIter;
 	m_nSubj = sphere.size();
 	m_mincost = FLT_MAX;
-	m_nProperties = propertiesnames.size();
+	m_nProperties = mapProperty.size();
 	//For backward compatibility, we substract 1 from the number of properties and make sure that the landmarks (now included in properties) are in the array.
-	for(int i = 0; i < propertiesnames.size(); i++){
-		if(propertiesnames[i].compare("landmarks") || propertiesnames[i].compare("LANDMARKS")){
-			m_nProperties--;
-			m_UseLandmarks = true;
-			break;
-		}
-	}
+	// for(int i = 0; i < m_nProperties; i++){
+	// 	if(propertiesnames[i].compare("Landmarks") || propertiesnames[i].compare("LANDMARKS") || propertiesnames[i].compare("landmarks")){
+	// 		m_nProperties--;
+	// 		m_UseLandmarks = true;
+	// 		break;
+	// 	}
+	// }
+	if (landmarksOn) m_UseLandmarks = true; 
+
 	m_nSurfaceProperties = (weightLoc > 0)? 3: 0;
 	m_Output = outputcoeff;
 	m_degree = deg;
 	m_degree_inc = 3;	// starting degree for the incremental optimization
 	m_SamplingDegree = 4;
-	init(sphere, surf, propertiesnames, weight, weightLoc, inputcoeff, m_SamplingDegree);
+	init(sphere, surf, mapProperty, weightLoc, inputcoeff, m_SamplingDegree);
 }
 
 GroupwiseRegistration::~GroupwiseRegistration(void)
@@ -117,7 +120,7 @@ void GroupwiseRegistration::run(void)
 	cout << "All done!\n";
 }
 
-void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, vector<string> propertiesnames, vector<double> weight, double weightLoc, vector<string> inputcoeff, double m_SamplingDegree){
+void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, std::map<std::string, float> mapProperty, double weightLoc, vector<string> inputcoeff, double m_SamplingDegree){
 	m_spharm = new spharm[m_nSubj];	// spharm info
 	m_updated = new bool[m_nSubj];	// AABB tree cache
 	m_eig = new float[m_nSubj];		// eigenvalues
@@ -167,7 +170,7 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, vect
 			m_spharm[subj].surf->openFile(surf[subj].c_str());
 		}
 		else m_spharm[subj].surf = NULL;
-		
+		cout << "m_nProperties :: " << m_nProperties << endl;
 		if (m_nProperties + m_nSurfaceProperties > 0)
 		{
 			// AABB tree construction for speedup computation
@@ -180,9 +183,26 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, vect
 		cout << "-Triangle flipping\n";
 		initTriangleFlipping(subj);
 		
+		// triangle flipping
+		cout << "-Triangle flipping\n";
+		initTriangleFlipping(subj);
+		
+		// property information
+		// cout << "-Property information\n";
+		// initProperties(subj, property, 3);
+		
+		// // landmarks
+		// if (landmark != NULL)
+		// {
+		// 	cout << "-Landmark information\n";
+		// 	initLandmarks(subj, landmark, surf);
+		// 	// m_UseLandmarks = true
+		// }
+		// cout << "----------" << endl;
+
 		// property information
 		cout << "-Property and landmarks information\n";
-		initPropertiesAndLandmarks(subj, surf[subj], propertiesnames);
+		initPropertiesAndLandmarks(subj, surf[subj], mapProperty);
 		
 		cout << "----------" << endl;
 	}
@@ -207,7 +227,11 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, vect
 	m_feature_weight = new float[nLandmark + nSamples * nTotalProperties];
 	float landmarkWeight = (nLandmark > 0) ? (float)nSamples / (float)nLandmark: 0;	// based on the number ratio (balance between landmark and property)
 	float totalWeight = weightLoc;
-	for (int n = 0; n < m_nProperties; n++) totalWeight += weight[n];
+	std::map< std::string, float >::const_iterator it = mapProperty.begin(), it_end = mapProperty.end();
+	for ( ; it != it_end ; it ++ )
+		totalWeight += it->second;
+
+
 	landmarkWeight *= totalWeight;
 	if (landmarkWeight == 0) landmarkWeight = 1;
 	cout << "Total properties: " << nTotalProperties << endl;
@@ -215,9 +239,14 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, vect
 
 	// assign the weighting factors
 	for (int i = 0; i < nLandmark; i++) m_feature_weight[i] = landmarkWeight;
-	for (int n = 0; n < m_nProperties; n++)
+	int n = 0;
+	it = mapProperty.begin(), it_end = mapProperty.end();
+	for ( ; it != it_end ; it ++ )
+	{
 		for (int i = 0; i < nSamples; i++)
-			m_feature_weight[nLandmark + nSamples * n + i] = weight[n];
+			m_feature_weight[nLandmark + nSamples * n + i] = it->second;
+		n++;
+	}
 	// weight for location information
 	for (int n = 0; n < m_nSurfaceProperties; n++)
 		for (int i = 0; i < nSamples; i++)
@@ -227,7 +256,8 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, vect
 	if (m_nProperties > 0)
 	{
 		cout << "Property weight: ";
-		for (int i = 0; i < m_nProperties; i++) cout << weight[i] << " ";
+		it = mapProperty.begin(), it_end = mapProperty.end();
+		for ( ; it != it_end ; it ++ ) cout << it->second << " ";
 		cout << endl;
 	}
 	if (weightLoc > 0) cout << "Location weight: " << weightLoc << endl;
@@ -585,7 +615,7 @@ void GroupwiseRegistration::initProperties(int subj, const char **property, int 
 	}
 }
 
-void GroupwiseRegistration::initPropertiesAndLandmarks(int subj, string surfacename, vector<string> propertyNames){
+void GroupwiseRegistration::initPropertiesAndLandmarks(int subj, string surfacename, std::map<std::string, float> mapProperty){
 
 
 	vtkSmartPointer<vtkPolyDataReader> reader = vtkSmartPointer<vtkPolyDataReader>::New();
@@ -594,56 +624,76 @@ void GroupwiseRegistration::initPropertiesAndLandmarks(int subj, string surfacen
 
 	vtkSmartPointer<vtkPolyData> surface = reader->GetOutput();
 
-	int nVertex = surface->GetNumberOfPoints();
-
-	for (int i = 0; i < propertyNames.size(); i++)	// property information
-	{
-		if(propertyNames[i].compare("landmarks") || propertyNames[i].compare("LANDMARKS")){
-			vtkDoubleArray* arr = vtkDoubleArray::SafeDownCast(surface->GetPointData()->GetArray(propertyNames[i].c_str()));
-
-			if(arr != NULL){
-				for (int j = 0; j < arr->GetSize(); j++){
-					int id = (int)arr->GetValue(j);
-					if(id >= 0 ){
-						const float *v = m_spharm[subj].sphere->vertex(id)->fv();
-			
-						float *Y = new float[(m_degree + 1) * (m_degree + 1)];
-						point *p = new point();
-						p->p[0] = v[0]; p->p[1] = v[1]; p->p[2] = v[2];
-						SphericalHarmonics::basis(m_degree, p->p, Y);
-						p->subject = subj;
-						p->Y = Y;
-						p->id = id;
-
-						m_spharm[subj].landmark.push_back(p);
-					}
-					
-					
-				}
-			}else{
-				cout<<"TODO: do for field data"<<endl;
-			}
-			
-		}else{
-			vtkDoubleArray* arr = vtkDoubleArray::SafeDownCast(surface->GetPointData()->GetArray(propertyNames[i].c_str()));
-
+	if(m_UseLandmarks){
+		vtkDoubleArray* arr = vtkDoubleArray::SafeDownCast(surface->GetPointData()->GetArray("Landmarks"));
+		if(arr != NULL){
 			for (int j = 0; j < arr->GetSize(); j++){
-				m_spharm[subj].property[nVertex * i + j] = arr->GetValue(j);
+				int id = (int)arr->GetValue(j);
+				if(id >= 0 ){
+					const float *v = m_spharm[subj].sphere->vertex(id)->fv();
+		
+					float *Y = new float[(m_degree + 1) * (m_degree + 1)];
+					point *p = new point();
+					p->p[0] = v[0]; p->p[1] = v[1]; p->p[2] = v[2];
+					SphericalHarmonics::basis(m_degree, p->p, Y);
+					p->subject = subj;
+					p->Y = Y;
+					p->id = id;
+
+					m_spharm[subj].landmark.push_back(p);
+				}	
 			}
 		}
 	}
 
-	// find the best statistics across subjects
-	
-	for (int i = 0; i < propertyNames.size(); i++)
+	// int nVertex = surface->GetNumberOfPoints();
+	int nVertex = m_spharm[subj].sphere->nVertex();	// this is the same as the number of properties
+	if (m_nProperties + m_nSurfaceProperties > 0)
 	{
-		cout << "--Property " << propertyNames[i] << endl;
+		m_spharm[subj].meanProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].maxProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].minProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].sdevProperty = new float[m_nProperties + m_nSurfaceProperties];
+		m_spharm[subj].property = new float[(m_nProperties + m_nSurfaceProperties) * nVertex];
+	}
+	else
+	{
+		m_spharm[subj].meanProperty = NULL;
+		m_spharm[subj].maxProperty = NULL;
+		m_spharm[subj].minProperty = NULL;
+		m_spharm[subj].sdevProperty = NULL;
+		m_spharm[subj].property = NULL;
+	}
+
+	
+	cout << "nVertex :: " << nVertex << endl;
+	int i = 0;
+	std::map<std::string, float>::const_iterator it = mapProperty.begin(), it_end = mapProperty.end();
+	for( ; it != it_end ; it ++ )
+	{
+		vtkDataArray* propArray = surface->GetPointData()->GetScalars((it->first).c_str());
+		for (int j = 0; j < nVertex; j++ )
+		{
+			double k1 = propArray->GetTuple1(j);
+			m_spharm[subj].property[nVertex * i + j] = (float) k1;
+		}
+		i++;
+	}
+
+	// find the best statistics across subjects
+	it = mapProperty.begin(), it_end = mapProperty.end();
+	i = 0;
+	for( ; it != it_end ; it ++ )
+	// for (int i = 0; i < propertyNames.size(); i++)
+	{
+		cout << "--Property " << it->first << endl;
 		m_spharm[subj].meanProperty[i] = Statistics::mean(&m_spharm[subj].property[nVertex * i], nVertex);
 		m_spharm[subj].maxProperty[i] = Statistics::max(&m_spharm[subj].property[nVertex * i], nVertex);
 		m_spharm[subj].minProperty[i] = Statistics::min(&m_spharm[subj].property[nVertex * i], nVertex);
 		m_spharm[subj].sdevProperty[i] = sqrt(Statistics::var(&m_spharm[subj].property[nVertex * i], nVertex));
 		cout << "---Min/Max: " << m_spharm[subj].minProperty[i] << ", " << m_spharm[subj].maxProperty[i] << endl;
 		cout << "---Mean/Stdev: " << m_spharm[subj].meanProperty[i] << ", " << m_spharm[subj].sdevProperty[i] << endl;
+		i++;
 	}
 
 }

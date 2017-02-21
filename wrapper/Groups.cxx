@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <vector>
 #include <string>
+
 #include <dirent.h>
 #include "GroupsCLP.h"
 #include "GroupwiseRegistration.h"
@@ -63,10 +64,10 @@ int main(int argc, char *argv[])
     }
     
     // update list files from the directory information
-    if (!dirSphere.empty() && listSphere.empty()) getListFile(dirSphere, listSphere, "vtk");// listSphere.erase(listSphere.begin() + 30, listSphere.begin() + listSphere.size());
-    if (!dirProperty.empty() && listProperty.empty()) getListFile(dirProperty, listProperty, "txt");
+    if (!dirSphere.empty() && listSphere.empty()) getListFile(dirSphere, listSphere, "vtk");
+    
     if (!dirSurf.empty() && listSurf.empty()) getListFile(dirSurf, listSurf, "vtk");
-    if (!dirLandmark.empty() && listLandmark.empty()) getListFile(dirLandmark, listLandmark, "fcsv");
+    
     if (!dirCoeff.empty() && listCoeff.empty()) getListFile(dirCoeff, listCoeff, "coeff");
 
     // subject names
@@ -84,7 +85,6 @@ int main(int argc, char *argv[])
             std::string suffixe_surf_para = "_pp_surf_para.vtk";
             std::string suffixe_para = "_pp_para.vtk";
             int suffixe_size;
-
             
             if ( filename.substr(filename.length() - suffixe_para.length()) == suffixe_para )        
                 suffixe_size = suffixe_para.length();
@@ -93,8 +93,8 @@ int main(int argc, char *argv[])
                 suffixe_size = suffixe_surf_para.length();
 
             name = filename.substr(0, filename.length() - suffixe_size);
-            
             subjName.push_back(name);
+            std::cout << "Name du subject " << i << " :: " << name << std::endl;
         }
     }
     for (int i = 0; i < nSubj; i++) cout << subjName[i] << endl;
@@ -102,37 +102,31 @@ int main(int argc, char *argv[])
     for (int i = 0; i < nSubj; i++) listOutput.push_back(dirOutput + "/" + subjName[i] + ".coeff");
     
     // trim all irrelevant files to the sphere files
-    if (!dirProperty.empty()) getTrimmedList(listProperty, subjName);
-    if (!dirLandmark.empty()) getTrimmedList(listLandmark, subjName);
     if (!dirCoeff.empty()) getTrimmedList(listCoeff, subjName);
-    if (!dirProperty.empty()) getTrimmedList(listProperty, listFilter);
-    if (listWeight.empty())
-    for (int i = 0; i < listProperty.size() / nSubj; i++)
-    listWeight.push_back(1);
 
-    int nProperties = listProperty.size();
+    std::map<std::string, float> mapProperty;
+    if ( phiOn )
+        mapProperty["Color_Map_Phi"] = phiWeight;
+    if ( thetaOn )
+        mapProperty["Color_Map_Theta"] = thetaWeight;
+    if ( CurvednessOn )
+        mapProperty["Curvedness"] = CurvednessWeight;
+    if ( ShapeIndexOn )
+        mapProperty["Shape_Index"] = ShapeIndexWeight;
+    if ( MaxCurvOn )
+        mapProperty["Maximum_Curvature"] = MaxCurvWeight;
+    if ( MinCurvOn )
+        mapProperty["Minimum_Curvature"] = MinCurvWeight;
+    if ( MeanCurvOn )
+        mapProperty["Meanimum_Curvature"] = MeanCurvWeight;
+    if ( GaussCurvOn )
+        mapProperty["Gaussian_Curvature"] = GaussCurvWeight;
+
     int nOutput = listOutput.size();
-    int nWeight = listWeight.size();
-    int nLandmark = listLandmark.size();
-    int nCoeff = listCoeff.size();
+    // int nCoeff = listCoeff.size();
     int nSurf = listSurf.size();
-    
-    const char **property = NULL;
-    const char **sphere = NULL;
-    const char **output = NULL;
-    const char **landmark = NULL;
-    const char **coeff = NULL;
-    const char **surf = NULL;
-    
-    if (nProperties > 0) property = new const char*[nProperties];
-    if (nSubj > 0) sphere = new const char*[nSubj];
-    if (nOutput > 0) output = new const char*[nOutput];
-    if (nLandmark > 0) landmark = new const char*[nLandmark];
-    if (nCoeff > 0) coeff = new const char*[nCoeff];
-    if (nSurf > 0) surf = new const char*[nSurf];
-    if (surf == NULL) weightLoc = 0;
-    float *weight = new float[nWeight];
-    
+    weightLoc = 0;
+
     // exception handling
     if (nSubj == 0)
     {
@@ -144,47 +138,45 @@ int main(int argc, char *argv[])
         cout << "Fatal error: # of subjects is incosistent with # of outputs!" << endl;
         return EXIT_FAILURE;
     }
-    else if (nLandmark == 0 && nProperties == 0)
-    {
-        cout << "Fatal error: neither landmarks nor properties are provided!" << endl;
-        return EXIT_FAILURE;
-    }
-    else if (nProperties / nSubj != nWeight)
-    {
-        cout << "Fatal error: # of properties is incosistent with # of weighting factors!" << endl;
-        return EXIT_FAILURE;
-    }
+    // else if (nLandmark == 0 && nProperties == 0)
+    // {
+    //     cout << "Fatal error: neither landmarks nor properties are provided!" << endl;
+    //     return EXIT_FAILURE;
+    // }
+    // else if (nProperties / nSubj != nWeight)
+    // {
+    //     cout << "Fatal error: # of properties is incosistent with # of weighting factors!" << endl;
+    //     return EXIT_FAILURE;
+    // }
     
-    for (int i = 0; i < nSubj; i++) sphere[i] = listSphere[i].c_str();
-    for (int i = 0; i < nProperties; i++) property[i] = listProperty[i].c_str();
-    for (int i = 0; i < nOutput; i++) output[i] = listOutput[i].c_str();
-    for (int i = 0; i < nLandmark; i++) landmark[i] = listLandmark[i].c_str();
-    for (int i = 0; i < nCoeff; i++) coeff[i] = listCoeff[i].c_str();
-    for (int i = 0; i < nSurf; i++) surf[i] = listSurf[i].c_str();
-    for (int i = 0; i < nWeight; i++) weight[i] = listWeight[i];
-    if (nWeight == 0) for (int i = 0; i < nProperties / nSubj; i++) weight[i] = 1;
+    for (int i = 0; i < nSubj; i++) listSphere[i] = listSphere[i].c_str();
+    for (int i = 0; i < nOutput; i++) listOutput[i] = listOutput[i].c_str();
+    // for (int i = 0; i < nCoeff; i++) listCoeff[i] = listCoeff[i].c_str();
+    for (int i = 0; i < nSurf; i++) listSurf[i] = listSurf[i].c_str();
+    // for (int i = 0; i < nWeight; i++) listWeight[i] = listWeight[i];
+    // if (nWeight == 0) for (int i = 0; i < nProperties / nSubj; i++) listWeight[i] = 1;
     
 
     // display for lists of files
-    cout << "Property: " << nProperties / nSubj << endl;	for (int i = 0; i < nProperties; i++) cout << property[i] << endl;
-    cout << "Sphere: " << nSubj << endl;					for (int i = 0; i < nSubj; i++) cout << sphere[i] << endl;
-    cout << "Output: " << nOutput << endl;					for (int i = 0; i < nOutput; i++) cout << output[i] << endl;
-    cout << "Landmark: " << nLandmark << endl;				for (int i = 0; i < nLandmark; i++) cout << landmark[i] << endl;
-    cout << "Coefficient: " << nCoeff << endl;				for (int i = 0; i < nCoeff; i++) cout << coeff[i] << endl;
-    cout << "Surface: " << nSurf << endl;					for (int i = 0; i < nSurf; i++) cout << surf[i] << endl;
+    cout << "Sphere: " << nSubj << endl;					for (int i = 0; i < nSubj; i++) cout << listSphere[i] << endl;
+    cout << "Output: " << nOutput << endl;					for (int i = 0; i < nOutput; i++) cout << listOutput[i] << endl;
+    cout << "Surface: " << nSurf << endl;					for (int i = 0; i < nSurf; i++) cout << listSurf[i] << endl;
     
+// GroupwiseRegistration(vector<string> sphere, vector<string> surf, vector<string> propertiesnames, vector<string> outputcoeff, vector<double> weight, double weightLoc, int deg, vector<string> inputcoeff, int maxIter);
+
     try{
-        GroupwiseRegistration groups(sphere, nSubj, property, nProperties / nSubj, output, weight, degree, landmark, weightLoc, coeff, surf, maxIter);
+        GroupwiseRegistration groups(listSphere, listSurf, mapProperty, listOutput, landmarksOn, weightLoc, degree, listCoeff, maxIter);
+        // GroupwiseRegistration groups(listSphere, nSubj, listProperty, nProperties / nSubj, listOutput, listWeight, degree, listLandmark, weightLoc, listCoeff, listSurf, maxIter);
         groups.run();
         
         // delete memory allocation
-        delete [] property;
-        delete [] sphere;
-        delete [] output;
-        delete [] landmark;
-        delete [] coeff;
-        delete [] surf;
-        delete [] weight;    
+        // delete [] property;
+        // delete [] sphere;
+        // delete [] output;
+        // delete [] landmark;
+        // delete [] coeff;
+        // delete [] surf;
+        // delete [] weight;    
     }catch(exception e){
 
         cerr<<e.what()<<endl;
