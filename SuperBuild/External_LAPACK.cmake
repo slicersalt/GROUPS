@@ -62,7 +62,7 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
     )
   ### --- End Project specific additions
   set(${proj}_REPOSITORY "${git_protocol}://github.com/Reference-LAPACK/lapack-release.git")
-  set(${proj}_GIT_TAG lapack-3.6.1)
+  set(${proj}_GIT_TAG lapack-3.7.0)
   ExternalProject_Add(${proj}
     GIT_REPOSITORY ${${proj}_REPOSITORY}
     GIT_TAG ${${proj}_GIT_TAG}
@@ -85,9 +85,9 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
     DEPENDS
       ${${proj}_DEPENDENCIES}
     )
-  set(${extProjName}_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib/cmake/lapack-3.6.1/)
+  set(${extProjName}_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib${LIB_SUFFIX}/cmake/lapack-3.7.0/)
 
-  set(LAPACKE_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib/cmake/lapacke-3.6.1/)
+  set(LAPACKE_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib${LIB_SUFFIX}/cmake/lapacke-3.7.0/)
   list(APPEND ${CMAKE_PROJECT_NAME}_SUPERBUILD_EP_VARS LAPACKE_DIR:PATH)
 else()
   if(${USE_SYSTEM_${extProjName}})

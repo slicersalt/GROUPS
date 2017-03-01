@@ -61,6 +61,7 @@ endif()
 #include(${QT_USE_FILE})
 
 option(USE_SYSTEM_ITK "Build using an externally defined version of ITK" OFF)
+option(USE_SYSTEM_VTK "Build using an externally defined version of VTK" OFF)
 option(USE_SYSTEM_SlicerExecutionModel "Build using an externally defined version of SlicerExecutionModel"  OFF)
 option(USE_SYSTEM_MeshLib "Build using an externally defined version of MeshLib" OFF)
 option(USE_SYSTEM_LAPACK "Build using an externally defined version of LAPACK" OFF)

@@ -221,6 +221,8 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, std:
 	cout << "Computing weight terms\n";
 	int nLandmark = m_spharm[0].landmark.size() * 3;	// # of landmarks: we assume all the subject has the same number, which already is checked above.
 	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
+
+	cout<<"Number of samples: "<<nSamples<<endl;
 	
 	// weights for covariance matrix computation
 	int nTotalProperties = m_nProperties + m_nSurfaceProperties;	// if location information is provided, total number = # of property + 3 -> (x, y, z location)
