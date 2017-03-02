@@ -86,9 +86,11 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
       ${${proj}_DEPENDENCIES}
     )
   set(${extProjName}_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib${LIB_SUFFIX}/cmake/lapack-3.7.0/)
-
   set(LAPACKE_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib${LIB_SUFFIX}/cmake/lapacke-3.7.0/)
   list(APPEND ${CMAKE_PROJECT_NAME}_SUPERBUILD_EP_VARS LAPACKE_DIR:PATH)
+message(STATUS "dddd${LAPACKE_DIR}")
+
+
 else()
   if(${USE_SYSTEM_${extProjName}})
     find_package(${extProjName} REQUIRED)

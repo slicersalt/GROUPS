@@ -67,7 +67,12 @@ GroupwiseRegistration::GroupwiseRegistration(vector<string> sphere, vector<strin
 	// 		break;
 	// 	}
 	// }
-	if (landmarksOn) m_UseLandmarks = true; 
+
+	m_UseLandmarks = landmarksOn;
+
+	if(m_UseLandmarks){
+		cout<<"Using landmarks included in file"<<endl;
+	}
 
 	m_nSurfaceProperties = (weightLoc > 0)? 3: 0;
 	m_Output = outputcoeff;
@@ -199,6 +204,8 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, std:
 		// 	// m_UseLandmarks = true
 		// }
 		// cout << "----------" << endl;
+
+		//initLandmarks(subj, landmark, surf);
 
 		// property information
 		cout << "-Property and landmarks information\n";
@@ -629,9 +636,13 @@ void GroupwiseRegistration::initPropertiesAndLandmarks(int subj, string surfacen
 	if(m_UseLandmarks){
 		vtkDoubleArray* arr = vtkDoubleArray::SafeDownCast(surface->GetPointData()->GetArray("Landmarks"));
 		if(arr != NULL){
+			cout<<endl;
+			cout<<endl;
+			cout<<"Landmarks for subject "<<subj<<endl;
+
 			for (int j = 0; j < arr->GetSize(); j++){
 				int id = (int)arr->GetValue(j);
-				if(id >= 0 ){
+				if(id > 0 ){
 					const float *v = m_spharm[subj].sphere->vertex(id)->fv();
 		
 					float *Y = new float[(m_degree + 1) * (m_degree + 1)];
@@ -640,8 +651,12 @@ void GroupwiseRegistration::initPropertiesAndLandmarks(int subj, string surfacen
 					SphericalHarmonics::basis(m_degree, p->p, Y);
 					p->subject = subj;
 					p->Y = Y;
-					p->id = id;
-
+					p->id = j;
+					cout<<p->subject<<endl;
+					cout<<Y<<endl;
+					cout<<id<<endl;
+					cout<<endl;
+					
 					m_spharm[subj].landmark.push_back(p);
 				}	
 			}
