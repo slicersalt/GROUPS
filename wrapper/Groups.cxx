@@ -17,6 +17,7 @@
 #include <dirent.h>
 #include "GroupsCLP.h"
 #include "GroupwiseRegistration.h"
+#include <iostream>
 
 bool getListFile(string path, vector<string> &list, const string &suffix)
 {
@@ -27,7 +28,7 @@ bool getListFile(string path, vector<string> &list, const string &suffix)
         while (dirent *entry = readdir(dir))
         {
             string filename = entry->d_name;
-            if (filename.size() >= suffix.size() && equal(suffix.rbegin(), suffix.rend(), filename.rbegin()))
+            if(filename.find(suffix) != string::npos && filename.find_last_of(suffix) == filename.size() - 1)
             {
                 list.push_back(path + "/" + filename);
             }
@@ -71,13 +72,13 @@ int main(int argc, char *argv[])
     
     // update list files from the directory information
     if (!dirSphere.empty() && listSphere.empty()){
-        if(! getListFile(dirSphere, listSphere, "vtk")){
+        if(! getListFile(dirSphere, listSphere, ".vtk")){
             return EXIT_FAILURE;
         }
     }
     
     if (!dirSurf.empty() && listSurf.empty()){
-        if(! getListFile(dirSurf, listSurf, "vtk")){
+        if(! getListFile(dirSurf, listSurf, ".vtk")){
             return EXIT_FAILURE;
         }
     }
