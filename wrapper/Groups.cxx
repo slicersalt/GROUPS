@@ -139,22 +139,39 @@ int main(int argc, char *argv[])
     if (!dirCoeff.empty()) getTrimmedList(listCoeff, subjName);
 
     std::map<std::string, float> mapProperty;
-    if ( phiOn )
-        mapProperty["Color_Map_Phi"] = phiWeight;
-    if ( thetaOn )
-        mapProperty["Color_Map_Theta"] = thetaWeight;
-    if ( CurvednessOn )
-        mapProperty["Curvedness"] = CurvednessWeight;
-    if ( ShapeIndexOn )
-        mapProperty["Shape_Index"] = ShapeIndexWeight;
-    if ( MaxCurvOn )
-        mapProperty["Maximum_Curvature"] = MaxCurvWeight;
-    if ( MinCurvOn )
-        mapProperty["Minimum_Curvature"] = MinCurvWeight;
-    if ( MeanCurvOn )
-        mapProperty["Meanimum_Curvature"] = MeanCurvWeight;
-    if ( GaussCurvOn )
-        mapProperty["Gaussian_Curvature"] = GaussCurvWeight;
+
+    try{
+        cout<<"ReadingnNumber of properties: "<<modelProperty.size()/2<<endl;
+        for(int i = 0; i < modelProperty.size(); i+=2){
+            string propertyname = modelProperty[i];
+            float weight = atof(modelProperty[i+1].c_str());
+            cout<<"Reading property: "<<propertyname<<endl;
+            cout<<"Reading weight: "<<weight<<endl;
+            
+            mapProperty[propertyname] = weight;
+        }
+    }catch(exception e){
+        cerr<<e.what()<<endl;
+        return EXIT_FAILURE;
+    }
+    
+
+    // if ( phiOn )
+    //     mapProperty["Color_Map_Phi"] = phiWeight;
+    // if ( thetaOn )
+    //     mapProperty["Color_Map_Theta"] = thetaWeight;
+    // if ( CurvednessOn )
+    //     mapProperty["Curvedness"] = CurvednessWeight;
+    // if ( ShapeIndexOn )
+    //     mapProperty["Shape_Index"] = ShapeIndexWeight;
+    // if ( MaxCurvOn )
+    //     mapProperty["Maximum_Curvature"] = MaxCurvWeight;
+    // if ( MinCurvOn )
+    //     mapProperty["Minimum_Curvature"] = MinCurvWeight;
+    // if ( MeanCurvOn )
+    //     mapProperty["Meanimum_Curvature"] = MeanCurvWeight;
+    // if ( GaussCurvOn )
+    //     mapProperty["Gaussian_Curvature"] = GaussCurvWeight;
 
     int nOutput = listOutput.size();
     // int nCoeff = listCoeff.size();
@@ -212,8 +229,8 @@ int main(int argc, char *argv[])
         // delete [] surf;
         // delete [] weight;    
     }catch(exception e){
-
         cerr<<e.what()<<endl;
+        return EXIT_FAILURE;
     }
     
     

@@ -688,6 +688,10 @@ void GroupwiseRegistration::initPropertiesAndLandmarks(int subj, string surfacen
 	for( ; it != it_end ; it ++ )
 	{
 		vtkDataArray* propArray = surface->GetPointData()->GetScalars((it->first).c_str());
+		if(propArray == NULL){
+			cerr<<"There is no property with name: " + it->first<<endl;
+			throw exception();
+		}
 		for (int j = 0; j < nVertex; j++ )
 		{
 			double k1 = propArray->GetTuple1(j);
