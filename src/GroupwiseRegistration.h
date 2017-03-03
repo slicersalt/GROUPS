@@ -116,7 +116,6 @@ private:
 	int nIter;
 
 	// output list
-	const char **m_output;
 	vector<string> m_Output;
 };
 

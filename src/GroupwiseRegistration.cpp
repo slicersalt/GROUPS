@@ -33,7 +33,6 @@ GroupwiseRegistration::GroupwiseRegistration(void)
 	m_mincost = FLT_MAX;
 	m_nProperties = 0;
 	m_nSurfaceProperties = 0;
-	m_output = NULL;
 	m_degree = 0;
 	m_degree_inc = 1;	// starting degree for the incremental optimization
 	m_UseLandmarks = false;
@@ -120,7 +119,7 @@ void GroupwiseRegistration::run(void)
 	// write the solutions
 	for (int subj = 0; subj < m_nSubj; subj++)
 	{
-		saveCoeff(m_output[subj], subj);
+		saveCoeff(m_Output[subj].c_str(), subj);
 	}
 	cout << "All done!\n";
 }
@@ -1179,7 +1178,7 @@ float GroupwiseRegistration::cost(float *coeff, int statusStep)
 		// write the current optimal solutions
 		for (int subj = 0; subj < m_nSubj; subj++)
 		{
-			saveCoeff(m_output[subj], subj);
+			saveCoeff(m_Output[subj].c_str(), subj);
 		}
 	}
 	

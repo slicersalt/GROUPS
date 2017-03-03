@@ -1,13 +1,13 @@
 /*************************************************
- *	main.cpp
+ *  main.cpp
  *
- *	Release: Sep 2016
- *	Update: Sep 2016
+ *  Release: Sep 2016
+ *  Update: Sep 2016
  *
- *	University of North Carolina at Chapel Hill
- *	Department of Computer Science
+ *  University of North Carolina at Chapel Hill
+ *  Department of Computer Science
  *
- *	Ilwoo Lyu, ilwoolyu@cs.unc.edu
+ *  Ilwoo Lyu, ilwoolyu@cs.unc.edu
  *************************************************/
 
 #include <cstdlib>
@@ -18,8 +18,9 @@
 #include "GroupsCLP.h"
 #include "GroupwiseRegistration.h"
 
-void getListFile(string path, vector<string> &list, const string &suffix)
+bool getListFile(string path, vector<string> &list, const string &suffix)
 {
+
     DIR *dir = opendir(path.c_str());
     if (dir != NULL)
     {
@@ -31,9 +32,14 @@ void getListFile(string path, vector<string> &list, const string &suffix)
                 list.push_back(path + "/" + filename);
             }
         }
+        closedir(dir);
+        sort(list.begin(), list.begin() + list.size());
+        return true;
+    }else{
+        
+        cerr<<"The directory does not exist! "<<path<<endl;
+        return false;
     }
-    closedir(dir);
-    sort(list.begin(), list.begin() + list.size());
 }
 
 void getTrimmedList(vector<string> &list, const vector<string> &name)
@@ -64,11 +70,34 @@ int main(int argc, char *argv[])
     }
     
     // update list files from the directory information
-    if (!dirSphere.empty() && listSphere.empty()) getListFile(dirSphere, listSphere, "vtk");
+    if (!dirSphere.empty() && listSphere.empty()){
+        if(! getListFile(dirSphere, listSphere, "vtk")){
+            return EXIT_FAILURE;
+        }
+    }
     
-    if (!dirSurf.empty() && listSurf.empty()) getListFile(dirSurf, listSurf, "vtk");
+    if (!dirSurf.empty() && listSurf.empty()){
+        if(! getListFile(dirSurf, listSurf, "vtk")){
+            return EXIT_FAILURE;
+        }
+    }
     
-    if (!dirCoeff.empty() && listCoeff.empty()) getListFile(dirCoeff, listCoeff, "coeff");
+    if (!dirCoeff.empty() && listCoeff.empty()){
+        if(! getListFile(dirCoeff, listCoeff, "coeff")){
+            return EXIT_FAILURE;
+        }
+    }
+
+    if(dirOutput.compare("") == 0){
+        cout<<"Setting dirOutput to ./"<<endl;
+        dirOutput = "./";
+    }else{
+        if (opendir(dirOutput.c_str()) == NULL)
+        {
+            cout<<"The output directory does not exist! "<<dirOutput<<endl;
+            return EXIT_FAILURE;
+        }
+    }
 
     // subject names
     int nSubj = listSphere.size();
@@ -99,7 +128,11 @@ int main(int argc, char *argv[])
     }
     for (int i = 0; i < nSubj; i++) cout << subjName[i] << endl;
     if (listOutput.empty())
-    for (int i = 0; i < nSubj; i++) listOutput.push_back(dirOutput + "/" + subjName[i] + ".coeff");
+
+    for (int i = 0; i < nSubj; i++){
+        listOutput.push_back(dirOutput + "/" + subjName[i].substr(0, subjName[i].find_last_of(".")) + ".coeff");
+        cout<<listOutput[i]<<endl;
+    } 
     
     // trim all irrelevant files to the sphere files
     if (!dirCoeff.empty()) getTrimmedList(listCoeff, subjName);
@@ -158,9 +191,9 @@ int main(int argc, char *argv[])
     
 
     // display for lists of files
-    cout << "Sphere: " << nSubj << endl;					for (int i = 0; i < nSubj; i++) cout << listSphere[i] << endl;
-    cout << "Output: " << nOutput << endl;					for (int i = 0; i < nOutput; i++) cout << listOutput[i] << endl;
-    cout << "Surface: " << nSurf << endl;					for (int i = 0; i < nSurf; i++) cout << listSurf[i] << endl;
+    cout << "Sphere: " << nSubj << endl;                    for (int i = 0; i < nSubj; i++) cout << listSphere[i] << endl;
+    cout << "Output: " << nOutput << endl;                  for (int i = 0; i < nOutput; i++) cout << listOutput[i] << endl;
+    cout << "Surface: " << nSurf << endl;                   for (int i = 0; i < nSurf; i++) cout << listSurf[i] << endl;
     
 // GroupwiseRegistration(vector<string> sphere, vector<string> surf, vector<string> propertiesnames, vector<string> outputcoeff, vector<double> weight, double weightLoc, int deg, vector<string> inputcoeff, int maxIter);
 
