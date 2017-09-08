@@ -66,12 +66,13 @@ option(USE_SYSTEM_SlicerExecutionModel "Build using an externally defined versio
 option(USE_SYSTEM_MeshLib "Build using an externally defined version of MeshLib" OFF)
 option(USE_SYSTEM_LAPACK "Build using an externally defined version of LAPACK" OFF)
 option(USE_SYSTEM_SurfRemesh "Build using an externally defined version of SurfRemesh" OFF)
+option(USE_SYSTEM_RigidAlignment "Build using an externally defined version of RigidAlignment" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 
 #------------------------------------------------------------------------------
 # ${LOCAL_PROJECT_NAME} dependency list
 #------------------------------------------------------------------------------
-set(${LOCAL_PROJECT_NAME}_DEPENDENCIES ITKv4 VTK SlicerExecutionModel MeshLib LAPACK SurfRemesh)
+set(${LOCAL_PROJECT_NAME}_DEPENDENCIES ITKv4 VTK SlicerExecutionModel MeshLib LAPACK SurfRemesh RigidAlignment)
 
 
 #-----------------------------------------------------------------------------
