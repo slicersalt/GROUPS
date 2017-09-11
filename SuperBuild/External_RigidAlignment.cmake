@@ -26,7 +26,7 @@ if(DEFINED ${extProjName}_DIR AND NOT EXISTS ${${extProjName}_DIR})
 endif()
 
 # Set dependency list
-set(${proj}_DEPENDENCIES "")
+set(${proj}_DEPENDENCIES "MeshLib")
 
 SlicerMacroCheckExternalProjectDependency(${proj})
 
@@ -49,8 +49,8 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
       -DCMAKE_INSTALL_PREFIX:PATH=${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/
     )
   ### --- End Project specific additions
-  set(${proj}_REPOSITORY "${git_protocol}://github.com/pdedumast/RigidAlignment.git")
-  # set(${proj}_GIT_TAG release)
+  set(${proj}_REPOSITORY "${git_protocol}://github.com/NIRALUser/RigidAlignment.git")
+  set(${proj}_GIT_TAG origin/release)
   ExternalProject_Add(${proj}
     GIT_REPOSITORY ${${proj}_REPOSITORY}
     GIT_TAG ${${proj}_GIT_TAG}
