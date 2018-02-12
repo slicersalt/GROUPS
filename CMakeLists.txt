@@ -9,6 +9,33 @@ set(Groups_VERSION_PATCH 0)
 
 set(LOCAL_PROJECT_NAME Groups)
 
+#-----------------------------------------------------------------------------
+# Extension meta-information
+set(EXTENSION_NAME Groups)
+set(EXTENSION_HOMEPAGE "")
+set(EXTENSION_CATEGORY "Groups")
+set(EXTENSION_CONTRIBUTORS "Mahmoud Mostapha (UNC)")
+set(EXTENSION_DESCRIPTION "Cortical correspondence method employing group-wise registration in a spherical parametrization space for the use in neuroimaging studies")
+
+set(EXTENSION_ICONURL "")
+set(EXTENSION_SCREENSHOTURLS "")
+set(EXTENSION_DEPENDS "") 
+
+set(EXTENSION_BUILD_SUBDIRECTORY ${LOCAL_PROJECT_NAME}-build)
+set(EXTENSION_STATUS Beta)
+
+set(SUPERBUILD_TOPLEVEL_PROJECT ${LOCAL_PROJECT_NAME})
+#-----------------------------------------------------------------------------
+# Slicer
+find_package(Slicer REQUIRED)
+include(${Slicer_USE_FILE})
+include(SlicerExtensionsConfigureMacros)
+mark_as_superbuild(Slicer_DIR)
+
+# Slicer Execution Model
+find_package(SlicerExecutionModel REQUIRED)
+include(${SlicerExecutionModel_USE_FILE})
+include(${GenerateCLP_USE_FILE})
 
 # Project version number.
 set(${LOCAL_PROJECT_NAME}_VERSION_MAJOR "0")
@@ -64,3 +91,8 @@ else()
 endif()
 
 message(FATAL_ERROR "You should never reach this point !")
+
+#-----------------------------------------------------------------------------
+# CPACK
+set(CPACK_INSTALL_CMAKE_PROJECTS "${CPACK_INSTALL_CMAKE_PROJECTS};${CMAKE_BINARY_DIR};${EXTENSION_NAME};ALL;/")
+include(${Slicer_EXTENSION_CPACK})
