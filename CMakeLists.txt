@@ -10,6 +10,18 @@ set(Groups_VERSION_PATCH 0)
 set(LOCAL_PROJECT_NAME Groups)
 
 #-----------------------------------------------------------------------------
+# Update CMake module path
+# We need to update the CMake Module path in this main CMakeLists.txt file
+# so that we can include SlicerExtensionsConfigureMacros which is in the current
+# ${Project}/CMake folder
+#------------------------------------------------------------------------------
+set(CMAKE_MODULE_PATH
+  ${CMAKE_SOURCE_DIR}/CMake
+  ${CMAKE_SOURCE_DIR}/SuperBuild
+  ${CMAKE_MODULE_PATH}
+  )
+
+#-----------------------------------------------------------------------------
 # Extension meta-information
 set(EXTENSION_NAME Groups)
 set(EXTENSION_HOMEPAGE "")
@@ -41,22 +53,6 @@ include(${GenerateCLP_USE_FILE})
 set(${LOCAL_PROJECT_NAME}_VERSION_MAJOR "0")
 set(${LOCAL_PROJECT_NAME}_VERSION_MINOR "1")
 set(${LOCAL_PROJECT_NAME}_VERSION_PATCH "0")
-
-#-----------------------------------------------------------------------------
-# Update CMake module path
-# We need to update the CMake Module path in this main CMakeLists.txt file
-# so that we can include SlicerExtensionsConfigureMacros which is in the current
-# ${Project}/CMake folder
-#------------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
-# Update CMake module path
-#------------------------------------------------------------------------------
-set(CMAKE_MODULE_PATH
-  ${CMAKE_SOURCE_DIR}/cmake
-  ${CMAKE_SOURCE_DIR}/SuperBuild
-  ${CMAKE_MODULE_PATH}
-  )
-
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/Common.cmake)
 
