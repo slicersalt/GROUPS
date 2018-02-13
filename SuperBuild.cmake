@@ -174,6 +174,7 @@ list(APPEND ${CMAKE_PROJECT_NAME}_SUPERBUILD_EP_VARS
   VTK_DIR:PATH
   VTK_VERSION_MAJOR:STRING
   SlicerExecutionModel_DIR:PATH
+  Slicer_DIR:PATH
   )
 
 _expand_external_project_vars()
