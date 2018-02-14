@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 2.8.3)
 cmake_policy(VERSION 2.8.3)
 
-project(Groups)
+project(GROUPS)
 
-set(Groups_VERSION_MAJOR 1)
-set(Groups_VERSION_MINOR 0)
-set(Groups_VERSION_PATCH 0)
+set(GROUPS_VERSION_MAJOR 1)
+set(GROUPS_VERSION_MINOR 0)
+set(GROUPS_VERSION_PATCH 0)
 
-set(LOCAL_PROJECT_NAME Groups)
+set(LOCAL_PROJECT_NAME GROUPS)
 
 #-----------------------------------------------------------------------------
 # Update CMake module path
@@ -23,9 +23,9 @@ set(CMAKE_MODULE_PATH
 
 #-----------------------------------------------------------------------------
 # Extension meta-information
-set(EXTENSION_NAME Groups)
+set(EXTENSION_NAME GROUPS)
 set(EXTENSION_HOMEPAGE "")
-set(EXTENSION_CATEGORY "Groups")
+set(EXTENSION_CATEGORY "GROUPS")
 set(EXTENSION_CONTRIBUTORS "Mahmoud Mostapha (UNC)")
 set(EXTENSION_DESCRIPTION "Cortical correspondence method employing group-wise registration in a spherical parametrization space for the use in neuroimaging studies")
 
@@ -83,7 +83,6 @@ if(${LOCAL_PROJECT_NAME}_SUPERBUILD)
   return()
 else()
   include("${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_PROJECT_NAME}.cmake")
-  return()
 endif()
 
 message(FATAL_ERROR "You should never reach this point !")
