@@ -86,8 +86,8 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
       ${${proj}_DEPENDENCIES}
     )
 
-  set(${extProjName}_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib64/cmake/lapack-3.7.1/)
-  set(LAPACKE_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-install/lib64/cmake/lapacke-3.7.1/)
+  set(${extProjName}_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-build)
+  set(LAPACKE_DIR ${EXTERNAL_BINARY_DIRECTORY}/${proj}-build)
 
   message(STATUS "Appending dir: ${LAPACKE_DIR}")
   list(APPEND ${CMAKE_PROJECT_NAME}_SUPERBUILD_EP_VARS LAPACKE_DIR:PATH)
