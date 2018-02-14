@@ -85,7 +85,7 @@ else()
   include("${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_PROJECT_NAME}.cmake")
 endif()
 
-message(FATAL_ERROR "You should never reach this point !")
+add_subdirectory(Modules)
 
 #-----------------------------------------------------------------------------
 # CPACK

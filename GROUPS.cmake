@@ -13,10 +13,3 @@ find_package(MeshLib REQUIRED)
 
 include_directories(Mesh GroupwiseRegistration)
 include_directories( ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR} )
-
-
-include_directories(src)
-
-include_directories(wrapper)
-add_subdirectory(wrapper)
-add_subdirectory(src)
