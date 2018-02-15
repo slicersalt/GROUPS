@@ -88,6 +88,23 @@ endif()
 add_subdirectory(Modules)
 
 #-----------------------------------------------------------------------------
+# Copy of the RigidAlignment and SurfRemesh executable in the package
+
+set(CLI_BIN_DIR ${CMAKE_BINARY_DIR}/bin)
+if(WIN32)
+  set(CLI_BIN_DIR ${CLI_BIN_DIR}/$<CONFIG>/.)
+else()
+  set(CLI_BIN_DIR ${CLI_BIN_DIR}/.)
+endif()
+
+install(
+  DIRECTORY ${CLI_BIN_DIR}
+  DESTINATION ${Slicer_INSTALL_CLIMODULES_LIB_DIR}/../hidden-cli-modules/
+  USE_SOURCE_PERMISSIONS
+  COMPONENT Runtime
+)
+
+#-----------------------------------------------------------------------------
 # CPACK
 set(CPACK_INSTALL_CMAKE_PROJECTS "${CPACK_INSTALL_CMAKE_PROJECTS};${CMAKE_BINARY_DIR};${EXTENSION_NAME};ALL;/")
 include(${Slicer_EXTENSION_CPACK})
