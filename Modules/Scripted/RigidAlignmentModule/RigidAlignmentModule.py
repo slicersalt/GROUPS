@@ -8,7 +8,6 @@ import platform
 import time
 import urllib
 import shutil
-from CommonUtilities import *
 
 #
 # RigidAlignmentModule
