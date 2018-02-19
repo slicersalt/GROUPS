@@ -26,12 +26,13 @@ set(CMAKE_MODULE_PATH
 set(EXTENSION_NAME GROUPS)
 set(EXTENSION_HOMEPAGE "")
 set(EXTENSION_CATEGORY "GROUPS")
-set(EXTENSION_CONTRIBUTORS "Mahmoud Mostapha (UNC)")
+set(EXTENSION_CONTRIBUTORS "Mahmoud Mostapha (UNC), Laura Pascal (Kitware, Inc.")
 set(EXTENSION_DESCRIPTION "Cortical correspondence method employing group-wise registration in a spherical parametrization space for the use in neuroimaging studies")
 
 set(EXTENSION_ICONURL "")
 set(EXTENSION_SCREENSHOTURLS "")
 set(EXTENSION_DEPENDS "") 
+set(EXTENSION_DEPENDS ShapePopulationViewer)
 
 set(EXTENSION_BUILD_SUBDIRECTORY ${LOCAL_PROJECT_NAME}-build)
 set(EXTENSION_STATUS Beta)
