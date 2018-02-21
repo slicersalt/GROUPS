@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <executable>
+    <category>Groups</category>
     <title>Group-wise Registration for Shape Correspondence (Groups)</title>
     <version>1.0</version>
     <contributor>Ilwoo Lyu</contributor>

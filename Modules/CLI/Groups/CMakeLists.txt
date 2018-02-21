@@ -1,3 +1,8 @@
+add_library(Registration_SOURCES
+                STATIC
+                GroupwiseRegistration.cpp)
+
+
 SEMMacroBuildCLI(
 		NAME Groups
 		EXECUTABLE_ONLY
@@ -10,5 +15,3 @@ SEMMacroBuildCLI(
 		INSTALL_LIBRARY_DESTINATION ${SlicerExecutionModel_DEFAULT_CLI_INSTALL_LIBRARY_DESTINATION}
 		INSTALL_ARCHIVE_DESTINATION ${SlicerExecutionModel_DEFAULT_CLI_INSTALL_ARCHIVE_DESTINATION}
 )
-
-install(TARGETS Groups RUNTIME DESTINATION ${INSTALL_RUNTIME_DESTINATION})

@@ -28,7 +28,7 @@ endif()
 # Set dependency list
 set(${proj}_DEPENDENCIES "")
 
-SlicerMacroCheckExternalProjectDependency(${proj})
+#SlicerMacroCheckExternalProjectDependency(${proj})
 
 if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
 
