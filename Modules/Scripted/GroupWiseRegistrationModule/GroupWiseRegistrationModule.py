@@ -240,8 +240,6 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
          --degree: Degree of deformation field
          --maxIter: Maximum number of iteration
     """
-    print(properties)
-
     print "--- Inspecting Input Data---"
     # List all the vtk files in the modelsDir
     listMesh = os.listdir(modelsDir)
@@ -277,11 +275,20 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     Groups_parameters["surface"]        = modelsDir
     Groups_parameters["sphere"]         = sphereDir
     Groups_parameters["output"]         = outputCoefficientDir
-    Groups_parameters["modelProperty"]  = propertiesNames[0]+','+propertiesWeights[0]
+
+    Prop = propertiesNames[0] + "," + str(propertiesWeights[0])
+    if len(propertiesNames) > 1 :
+      i = 1
+      while i < len(propertiesNames):
+        Prop = Prop + " " + "--modelProperty" + " " + propertiesNames[i] + "," + str(propertiesWeights[i])
+        i += 1
+
+    Groups_parameters["modelProperty"]  = Prop
     if (Landmarks):
-      Groups_parameters["landmarksOn"]  = ' '
+      Groups_parameters["landmarksOn"]  = " "
     Groups_parameters["degree"]         = degree
     Groups_parameters["maxIter"]        = maxIter
+    print(Groups_parameters)
     G = slicer.modules.Groups  
     # Launch Groups
     slicer.cli.run(G, None, Groups_parameters, wait_for_completion=True)
