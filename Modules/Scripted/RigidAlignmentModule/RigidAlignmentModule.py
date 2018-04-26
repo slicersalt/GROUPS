@@ -162,8 +162,8 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         listMesh.remove(".DS_Store")
 
       # Creation of a CSV file to load the vtk files in ShapePopulationViewer
-      #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewForVisualizationInSPV.csv')
-      filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewForVisualizationInSPV.csv'
+      #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewInputDataForVisualizationInSPV.csv')
+      filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewInputDataForVisualizationInSPV.csv'
       file = open(filePathCSV, 'w')
       cw = csv.writer(file, delimiter=',')
       cw.writerow(['VTK Files'])
@@ -236,11 +236,11 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         OutputMesh = outputsurfaceDir + '/' + listSphere[i].split("_rotSphere.vtk",1)[0] + '_aligned.vtk'
         # Creation of the parameters of SurfRemesh
         SurfRemesh_parameters = {}
-        SurfRemesh_parameters["tempModel"]  = Sphere
+        SurfRemesh_parameters["temp"]       = Sphere
         SurfRemesh_parameters["input"]      = Mesh
         SurfRemesh_parameters["ref"]        = UnitSphere
         SurfRemesh_parameters["output"]     = OutputMesh
-        SR = slicer.modules.SRemesh
+        SR = slicer.modules.sremesh
         # Launch SurfRemesh
         slicer.cli.run(SR, None, SurfRemesh_parameters, wait_for_completion=True)
         print "--- Surface " + str(i) + " Remesh Done ---"
@@ -274,8 +274,8 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         listOutputMesh.remove(".DS_Store")
 
       # Creation of a CSV file to load the output vtk files in ShapePopulationViewer
-      #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewForVisualizationInSPV.csv')
-      filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewForVisualizationInSPV.csv'
+      #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewOutputDataForVisualizationInSPV.csv')
+      filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewOutputDataForVisualizationInSPV.csv'
       file = open(filePathCSV, 'w')
       cw = csv.writer(file, delimiter=',')
       cw.writerow(['VTK Files'])

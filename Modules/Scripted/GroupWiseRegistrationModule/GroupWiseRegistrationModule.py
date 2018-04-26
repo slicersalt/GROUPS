@@ -246,8 +246,8 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     if listMesh.count(".DS_Store"):
       listMesh.remove(".DS_Store")
     # Creation of a CSV file to load the vtk files in ShapePopulationViewer
-    #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewForVisualizationInSPV.csv')
-    filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewForVisualizationInSPV.csv'
+    #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewInputDataForVisualizationInSPV.csv')
+    filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewInputDataForVisualizationInSPV.csv'
     file = open(filePathCSV, 'w')
     cw = csv.writer(file, delimiter=',')
     cw.writerow(['VTK Files'])
@@ -269,30 +269,39 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
       SPV = slicer.modules.launcher
     # Launch SPV
     slicer.cli.run(SPV, None, parameters, wait_for_completion=True)
+
+    # Deletion of the CSV files in the Slicer temporary directory
+    if os.path.exists(filePathCSV):
+      os.remove(filePathCSV)
     print "--- Groups Running ---"
     # Creation of the parameters of Rigid Alignment
     Groups_parameters = {}
-    Groups_parameters["surface"]        = modelsDir
-    Groups_parameters["sphere"]         = sphereDir
-    Groups_parameters["output"]         = outputCoefficientDir
+    Groups_parameters["dirSurf"]           = modelsDir
+    Groups_parameters["dirSphere"]         = sphereDir
+    Groups_parameters["dirOutput"]         = outputCoefficientDir
 
     Prop = propertiesNames[0] + "," + str(propertiesWeights[0])
     if len(propertiesNames) > 1 :
       i = 1
       while i < len(propertiesNames):
-        Prop = Prop + " " + "--modelProperty" + " " + propertiesNames[i] + "," + str(propertiesWeights[i])
+        Prop = Prop + "," + propertiesNames[i] + "," + str(propertiesWeights[i])
         i += 1
-
     Groups_parameters["modelProperty"]  = Prop
     if (Landmarks):
       Groups_parameters["landmarksOn"]  = " "
     Groups_parameters["degree"]         = degree
     Groups_parameters["maxIter"]        = maxIter
-    print(Groups_parameters)
-    G = slicer.modules.Groups  
+    #print(Groups_parameters)
+    G = slicer.modules.groups  
     # Launch Groups
-    slicer.cli.run(G, None, Groups_parameters, wait_for_completion=True)
+    cliNode = slicer.cli.run(G, None, Groups_parameters, wait_for_completion=True)
+    def printStatus(caller, event):
+      print("Got a %s from a %s" % (event, caller.GetClassName()))
+      if caller.IsA('vtkMRMLCommandLineModuleNode'):
+        print("Status is %s" % caller.GetStatusString())
+    cliNode.AddObserver('ModifiedEvent', printStatus)
     print "--- Groups Done ---"
+
     # ------------------------------------ # 
     # ------------ SurfRemesh ------------ # 
     # ------------------------------------ # 
@@ -322,15 +331,15 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
       #Coeff = os.path.join(outputCoefficientDir, listCoeff[i])
       Coeff = outputCoefficientDir + '/' + listCoeff[i]
       #OutputMesh = os.path.join(outputDir, listCoeff[i].split(".coeff.txt",1)[0] + '.vtk')
-      OutputMesh = outputDir + '/' + listCoeff[i].split(".coeff.txt",1)[0] + '.vtk'
+      OutputMesh = outputDir + '/' + listCoeff[i].split(".coeff",1)[0] + '.vtk'
       # Creation of the parameters of SurfRemesh
       SurfRemesh_parameters = {}
-      SurfRemesh_parameters["tempModel"]  = Sphere
+      SurfRemesh_parameters["temp"]       = Sphere
       SurfRemesh_parameters["input"]      = Mesh
       SurfRemesh_parameters["ref"]        = Sphere
       SurfRemesh_parameters["coeff"]      = Coeff
       SurfRemesh_parameters["output"]     = OutputMesh
-      SR = slicer.modules.SRemesh
+      SR = slicer.modules.sremesh
       # Launch SurfRemesh
       slicer.cli.run(SR, None, SurfRemesh_parameters, wait_for_completion=True)
       print "--- Surface " + str(i) + " Remesh Done ---"
@@ -350,7 +359,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
       new_mesh.GetPointData().SetActiveScalars("_paraPhi")
       new_mesh.GetPointData().SetScalars(phiArray)
       new_mesh.Modified()
-      # write circle out
+      # write results
       polyDataWriter = vtk.vtkPolyDataWriter()
       polyDataWriter.SetInputData(new_mesh)
       polyDataWriter.SetFileName(str(OutputMesh))
@@ -362,10 +371,9 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     listOutputMesh = os.listdir(outputDir)
     if listOutputMesh.count(".DS_Store"):
       listOutputMesh.remove(".DS_Store")
-
     # Creation of a CSV file to load the output vtk files in ShapePopulationViewer
-    #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewForVisualizationInSPV.csv')
-    filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewForVisualizationInSPV.csv'
+    #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewOutputDataForVisualizationInSPV.csv')
+    filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewOutputDataForVisualizationInSPV.csv'
     file = open(filePathCSV, 'w')
     cw = csv.writer(file, delimiter=',')
     cw.writerow(['VTK Files'])
