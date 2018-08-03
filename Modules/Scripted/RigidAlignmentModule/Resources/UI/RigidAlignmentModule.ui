@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>RigidAlignment</class>
+ <widget class="qMRMLWidget" name="RigidAlignment">
+  <property name="enabled">
+   <bool>true</bool>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>767</width>
+    <height>1199</height>
+   </rect>
+  </property>
+  <property name="acceptDrops">
+   <bool>false</bool>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="1" column="0" colspan="2">
+    <widget class="QPushButton" name="pushButton_RigidAlignment">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="text">
+      <string>Run RigidAlignment</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="2">
+    <widget class="ctkCollapsibleButton" name="CollapsibleButton_Directories">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="text">
+      <string>RigidAlignment Directories</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+     <property name="contentsFrameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout_1">
+      <item>
+       <widget class="QWidget" name="widget_Directories" native="true">
+        <layout class="QFormLayout" name="formLayout">
+         <property name="fieldGrowthPolicy">
+          <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+         </property>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_RigidAlignmentInputModelsDirectory">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Input Directory &lt;br/&gt;The input directory should contain the time-regressed shapes computed by RegressionComputation&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+           <property name="text">
+            <string>Input Models Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentInputModelsDirectory">
+           <property name="toolTip">
+            <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Input Directory &lt;br/&gt;The input directory should contain the time-regressed shapes computed by RegressionComputation&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="label_RigidAlignmentInputFiducialFilesDirectory">
+           <property name="text">
+            <string>Input Fiducial Files Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentInputFiducialFilesDirectory"/>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_RigidAlignmentCommonSphereDirectory">
+           <property name="text">
+            <string>Input Common Unit Sphere</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentCommonSphereDirectory"/>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="label_RigidAlignmentOutputSphericalModelsDirectory">
+           <property name="text">
+            <string>Output Spherical Models Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentOutputSphericalModelsDirectory"/>
+         </item>
+         <item row="5" column="1">
+          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentOutputModelsDirectory"/>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="label_RigidAlignmentOutputModelsDirectory">
+           <property name="text">
+            <string>Output Models Directory </string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Preferred</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>900</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>qMRMLWidget</class>
+   <extends>QWidget</extends>
+   <header>qMRMLWidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkCollapsibleButton</class>
+   <extends>QWidget</extends>
+   <header>ctkCollapsibleButton.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>ctkDirectoryButton</class>
+   <extends>QWidget</extends>
+   <header>ctkDirectoryButton.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

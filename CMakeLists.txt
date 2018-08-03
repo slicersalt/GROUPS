@@ -1,19 +1,13 @@
 cmake_minimum_required(VERSION 2.8.3)
 cmake_policy(VERSION 2.8.3)
 
-project(Groups)
+project(GROUPS)
 
-set(Groups_VERSION_MAJOR 1)
-set(Groups_VERSION_MINOR 0)
-set(Groups_VERSION_PATCH 0)
+set(GROUPS_VERSION_MAJOR 1)
+set(GROUPS_VERSION_MINOR 0)
+set(GROUPS_VERSION_PATCH 0)
 
-set(LOCAL_PROJECT_NAME Groups)
-
-
-# Project version number.
-set(${LOCAL_PROJECT_NAME}_VERSION_MAJOR "0")
-set(${LOCAL_PROJECT_NAME}_VERSION_MINOR "1")
-set(${LOCAL_PROJECT_NAME}_VERSION_PATCH "0")
+set(LOCAL_PROJECT_NAME GROUPS)
 
 #-----------------------------------------------------------------------------
 # Update CMake module path
@@ -21,15 +15,45 @@ set(${LOCAL_PROJECT_NAME}_VERSION_PATCH "0")
 # so that we can include SlicerExtensionsConfigureMacros which is in the current
 # ${Project}/CMake folder
 #------------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
-# Update CMake module path
-#------------------------------------------------------------------------------
 set(CMAKE_MODULE_PATH
-  ${CMAKE_SOURCE_DIR}/cmake
+  ${CMAKE_SOURCE_DIR}/CMake
   ${CMAKE_SOURCE_DIR}/SuperBuild
   ${CMAKE_MODULE_PATH}
   )
 
+#-----------------------------------------------------------------------------
+# Extension meta-information
+set(EXTENSION_NAME GROUPS)
+set(EXTENSION_HOMEPAGE "")
+set(EXTENSION_CATEGORY "GROUPS")
+set(EXTENSION_CONTRIBUTORS "Mahmoud Mostapha (UNC), Laura Pascal (Kitware, Inc.")
+set(EXTENSION_DESCRIPTION "Cortical correspondence method employing group-wise registration in a spherical parametrization space for the use in neuroimaging studies")
+
+set(EXTENSION_ICONURL "")
+set(EXTENSION_SCREENSHOTURLS "")
+set(EXTENSION_DEPENDS "") 
+set(EXTENSION_DEPENDS ShapePopulationViewer)
+
+set(EXTENSION_BUILD_SUBDIRECTORY ${LOCAL_PROJECT_NAME}-build)
+set(EXTENSION_STATUS Beta)
+
+set(SUPERBUILD_TOPLEVEL_PROJECT ${LOCAL_PROJECT_NAME})
+#-----------------------------------------------------------------------------
+# Slicer
+find_package(Slicer REQUIRED)
+include(${Slicer_USE_FILE})
+include(SlicerExtensionsConfigureMacros)
+mark_as_superbuild(Slicer_DIR)
+
+# Slicer Execution Model
+find_package(SlicerExecutionModel REQUIRED)
+include(${SlicerExecutionModel_USE_FILE})
+include(${GenerateCLP_USE_FILE})
+
+# Project version number.
+set(${LOCAL_PROJECT_NAME}_VERSION_MAJOR "0")
+set(${LOCAL_PROJECT_NAME}_VERSION_MINOR "1")
+set(${LOCAL_PROJECT_NAME}_VERSION_PATCH "0")
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/Common.cmake)
 
@@ -60,7 +84,28 @@ if(${LOCAL_PROJECT_NAME}_SUPERBUILD)
   return()
 else()
   include("${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_PROJECT_NAME}.cmake")
-  return()
 endif()
 
-message(FATAL_ERROR "You should never reach this point !")
+add_subdirectory(Modules)
+
+#-----------------------------------------------------------------------------
+# Copy of the RigidAlignment and SurfRemesh executable in the package
+
+set(CLI_BIN_DIR ${CMAKE_BINARY_DIR}/bin)
+if(WIN32)
+  set(CLI_BIN_DIR ${CLI_BIN_DIR}/$<CONFIG>/.)
+else()
+  set(CLI_BIN_DIR ${CLI_BIN_DIR}/.)
+endif()
+
+install(
+  DIRECTORY ${CLI_BIN_DIR}
+  DESTINATION ${Slicer_INSTALL_CLIMODULES_LIB_DIR}/../hidden-cli-modules/
+  USE_SOURCE_PERMISSIONS
+  COMPONENT Runtime
+)
+
+#-----------------------------------------------------------------------------
+# CPACK
+set(CPACK_INSTALL_CMAKE_PROJECTS "${CPACK_INSTALL_CMAKE_PROJECTS};${CMAKE_BINARY_DIR};${EXTENSION_NAME};ALL;/")
+include(${Slicer_EXTENSION_CPACK})
