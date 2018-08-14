@@ -59,7 +59,7 @@ if(NOT DEFINED ${extProjName}_DIR AND NOT ${USE_SYSTEM_${extProjName}})
     )
   ### --- End Project specific additions
   set(${proj}_REPOSITORY "${git_protocol}://github.com/NIRALUser/MeshLib.git")
-  set(${proj}_GIT_TAG 477e4baf00e0b5d285f5d8f43eec77c3da22e8e7)
+  set(${proj}_GIT_TAG 9eb4d15ce1e8f982ba6dd7661abbeb678fe5634a)
   ExternalProject_Add(${proj}
     GIT_REPOSITORY ${${proj}_REPOSITORY}
     GIT_TAG ${${proj}_GIT_TAG}
