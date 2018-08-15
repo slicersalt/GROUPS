@@ -1,17 +1,46 @@
-add_library(Registration_SOURCES
-                STATIC
-                GroupwiseRegistration.cpp)
+#-----------------------------------------------------------------------------
+set(MODULE_NAME Groups)
 
+#-----------------------------------------------------------------------------
 
+# SlicerExecutionModel
+find_package(SlicerExecutionModel REQUIRED)
+include(${SlicerExecutionModel_USE_FILE})
+
+# ITK
+#set(${PROJECT_NAME}_ITK_COMPONENTS
+#  ITKIOImageBase
+#  ITKSmoothing
+#  )
+#find_package(ITK 4.6 COMPONENTS ${${PROJECT_NAME}_ITK_COMPONENTS} REQUIRED)
+#set(ITK_NO_IO_FACTORY_REGISTER_MANAGER 1) # See Libs/ITKFactoryRegistration/CMakeLists.txt
+#include(${ITK_USE_FILE})
+
+#-----------------------------------------------------------------------------
+set(MODULE_INCLUDE_DIRECTORIES
+  )
+
+set(MODULE_SRCS
+  GroupwiseRegistration.cpp
+  )
+
+set(MODULE_TARGET_LIBRARIES
+#  ${ITK_LIBRARIES}
+  ${LAPACK_LIBRARIES}
+  Mesh
+  ${VTK_LIBRARIES}
+  )
+
+#-----------------------------------------------------------------------------
 SEMMacroBuildCLI(
-		NAME Groups
-		EXECUTABLE_ONLY
-		TARGET_LIBRARIES ${LAPACK_LIBRARIES} Mesh Registration_SOURCES ${VTK_LIBRARIES}
-		INCLUDE_DIRECTORIES ${CMAKE_CURRENT_SOURCE_DIR} 
-		RUNTIME_OUTPUT_DIRECTORY ${SlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY}
-		LIBRARY_OUTPUT_DIRECTORY ${SlicerExecutionModel_DEFAULT_CLI_LIBRARY_OUTPUT_DIRECTORY}
-		ARCHIVE_OUTPUT_DIRECTORY ${SlicerExecutionModel_DEFAULT_CLI_ARCHIVE_OUTPUT_DIRECTORY}
-		INSTALL_RUNTIME_DESTINATION ${SlicerExecutionModel_DEFAULT_CLI_INSTALL_RUNTIME_DESTINATION}
-		INSTALL_LIBRARY_DESTINATION ${SlicerExecutionModel_DEFAULT_CLI_INSTALL_LIBRARY_DESTINATION}
-		INSTALL_ARCHIVE_DESTINATION ${SlicerExecutionModel_DEFAULT_CLI_INSTALL_ARCHIVE_DESTINATION}
-)
+  NAME ${MODULE_NAME}
+  TARGET_LIBRARIES ${MODULE_TARGET_LIBRARIES}
+  INCLUDE_DIRECTORIES ${MODULE_INCLUDE_DIRECTORIES}
+  ADDITIONAL_SRCS ${MODULE_SRCS}
+  EXECUTABLE_ONLY
+  )
+
+#-----------------------------------------------------------------------------
+if(BUILD_TESTING)
+#  add_subdirectory(Testing)
+endif()
