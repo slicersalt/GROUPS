@@ -35,7 +35,7 @@ if(NOT DEFINED LAPACK_DIR AND NOT ${CMAKE_PROJECT_NAME}_USE_SYSTEM_LAPACK
 
   ExternalProject_SetIfNotDefined(
     ${CMAKE_PROJECT_NAME}_${proj}_GIT_TAG
-    "97bc1b834b517c03e9eaf8b9fc6f79f26c16b320"
+    "c5471e8be2754345ec650c8d3b08c6eb680ebd0c"
     QUIET
     )
 
