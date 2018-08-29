@@ -45,11 +45,11 @@ bool getListFile(string path, vector<string> &list, const string &suffix)
 
 void getTrimmedList(vector<string> &list, const vector<string> &name)
 {
-    int i = 0;
+    size_t i = 0;
     while (i < list.size())
     {
         size_t found;
-        for (int j = 0; j < name.size(); j++)
+        for (size_t j = 0; j < name.size(); j++)
         {
             found = list[i].find(name[j].substr(name[j].rfind('/') + 1));
             if (string::npos != found) break;
@@ -101,20 +101,20 @@ int main(int argc, char *argv[])
     }
 
     // subject names
-    int nSubj = listSphere.size();
+    size_t nSubj = listSphere.size();
     vector<string> subjName;
     if (nSubj > 0)
     {
-        for (int i = 0; i < nSubj; i++)
+        for (size_t i = 0; i < nSubj; i++)
         {
-            int pivot = listSphere[i].rfind('/') + 1;
+            size_t pivot = listSphere[i].rfind('/') + 1;
 
             std::string filename = listSphere[i].substr(pivot);
 
             std::string name;
             std::string suffixe_surf_para = "_pp_surf_para.vtk";
             std::string suffixe_para = "_pp_para.vtk";
-            int suffixe_size;
+            size_t suffixe_size;
             
             if ( filename.substr(filename.length() - suffixe_para.length()) == suffixe_para )        
                 suffixe_size = suffixe_para.length();
@@ -127,10 +127,10 @@ int main(int argc, char *argv[])
             std::cout << "Name du subject " << i << " :: " << name << std::endl;
         }
     }
-    for (int i = 0; i < nSubj; i++) cout << subjName[i] << endl;
+    for (size_t i = 0; i < nSubj; i++) cout << subjName[i] << endl;
     if (listOutput.empty())
 
-    for (int i = 0; i < nSubj; i++){
+    for (size_t i = 0; i < nSubj; i++){
         listOutput.push_back(dirOutput + "/" + subjName[i].substr(0, subjName[i].find_last_of(".")) + ".coeff");
         cout<<listOutput[i]<<endl;
     } 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 
     try{
         cout<<"ReadingnNumber of properties: "<<modelProperty.size()/2<<endl;
-        for(int i = 0; i < modelProperty.size(); i+=2){
+        for(size_t i = 0; i < modelProperty.size(); i+=2){
             string propertyname = modelProperty[i];
             float weight = atof(modelProperty[i+1].c_str());
             cout<<"Reading property: "<<propertyname<<endl;
@@ -173,9 +173,9 @@ int main(int argc, char *argv[])
     // if ( GaussCurvOn )
     //     mapProperty["Gaussian_Curvature"] = GaussCurvWeight;
 
-    int nOutput = listOutput.size();
+    size_t nOutput = listOutput.size();
     // int nCoeff = listCoeff.size();
-    int nSurf = listSurf.size();
+    size_t nSurf = listSurf.size();
     weightLoc = 0;
 
     // exception handling
@@ -200,18 +200,18 @@ int main(int argc, char *argv[])
     //     return EXIT_FAILURE;
     // }
     
-    for (int i = 0; i < nSubj; i++) listSphere[i] = listSphere[i].c_str();
-    for (int i = 0; i < nOutput; i++) listOutput[i] = listOutput[i].c_str();
-    // for (int i = 0; i < nCoeff; i++) listCoeff[i] = listCoeff[i].c_str();
-    for (int i = 0; i < nSurf; i++) listSurf[i] = listSurf[i].c_str();
-    // for (int i = 0; i < nWeight; i++) listWeight[i] = listWeight[i];
-    // if (nWeight == 0) for (int i = 0; i < nProperties / nSubj; i++) listWeight[i] = 1;
+    for (size_t i = 0; i < nSubj; i++) listSphere[i] = listSphere[i].c_str();
+    for (size_t i = 0; i < nOutput; i++) listOutput[i] = listOutput[i].c_str();
+    // for (size_t i = 0; i < nCoeff; i++) listCoeff[i] = listCoeff[i].c_str();
+    for (size_t i = 0; i < nSurf; i++) listSurf[i] = listSurf[i].c_str();
+    // for (size_t i = 0; i < nWeight; i++) listWeight[i] = listWeight[i];
+    // if (nWeight == 0) for (size_t i = 0; i < nProperties / nSubj; i++) listWeight[i] = 1;
     
 
     // display for lists of files
-    cout << "Sphere: " << nSubj << endl;                    for (int i = 0; i < nSubj; i++) cout << listSphere[i] << endl;
-    cout << "Output: " << nOutput << endl;                  for (int i = 0; i < nOutput; i++) cout << listOutput[i] << endl;
-    cout << "Surface: " << nSurf << endl;                   for (int i = 0; i < nSurf; i++) cout << listSurf[i] << endl;
+    cout << "Sphere: " << nSubj << endl;                    for (size_t i = 0; i < nSubj; i++) cout << listSphere[i] << endl;
+    cout << "Output: " << nOutput << endl;                  for (size_t i = 0; i < nOutput; i++) cout << listOutput[i] << endl;
+    cout << "Surface: " << nSurf << endl;                   for (size_t i = 0; i < nSurf; i++) cout << listSurf[i] << endl;
     
 // GroupwiseRegistration(vector<string> sphere, vector<string> surf, vector<string> propertiesnames, vector<string> outputcoeff, vector<double> weight, double weightLoc, int deg, vector<string> inputcoeff, int maxIter);
 

@@ -1,111 +1,67 @@
-cmake_minimum_required(VERSION 2.8.3)
-cmake_policy(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 
 project(GROUPS)
 
 set(GROUPS_VERSION_MAJOR 1)
 set(GROUPS_VERSION_MINOR 0)
 set(GROUPS_VERSION_PATCH 0)
-
-set(LOCAL_PROJECT_NAME GROUPS)
-
-#-----------------------------------------------------------------------------
-# Update CMake module path
-# We need to update the CMake Module path in this main CMakeLists.txt file
-# so that we can include SlicerExtensionsConfigureMacros which is in the current
-# ${Project}/CMake folder
-#------------------------------------------------------------------------------
-set(CMAKE_MODULE_PATH
-  ${CMAKE_SOURCE_DIR}/CMake
-  ${CMAKE_SOURCE_DIR}/SuperBuild
-  ${CMAKE_MODULE_PATH}
-  )
+set(GROUPS_VERSION
+${GROUPS_VERSION_MAJOR}.${GROUPS_VERSION_MINOR}.${GROUPS_VERSION_PATCH})
 
 #-----------------------------------------------------------------------------
 # Extension meta-information
-set(EXTENSION_NAME GROUPS)
 set(EXTENSION_HOMEPAGE "")
 set(EXTENSION_CATEGORY "GROUPS")
 set(EXTENSION_CONTRIBUTORS "Mahmoud Mostapha (UNC), Laura Pascal (Kitware, Inc.")
 set(EXTENSION_DESCRIPTION "Cortical correspondence method employing group-wise registration in a spherical parametrization space for the use in neuroimaging studies")
-
 set(EXTENSION_ICONURL "")
 set(EXTENSION_SCREENSHOTURLS "")
-set(EXTENSION_DEPENDS "") 
 set(EXTENSION_DEPENDS ShapePopulationViewer)
+set(EXTENSION_BUILD_SUBDIRECTORY inner-build)
 
-set(EXTENSION_BUILD_SUBDIRECTORY ${LOCAL_PROJECT_NAME}-build)
-set(EXTENSION_STATUS Beta)
+set(SUPERBUILD_TOPLEVEL_PROJECT inner)
 
-set(SUPERBUILD_TOPLEVEL_PROJECT ${LOCAL_PROJECT_NAME})
 #-----------------------------------------------------------------------------
-# Slicer
+# Extension dependencies
 find_package(Slicer REQUIRED)
 include(${Slicer_USE_FILE})
-include(SlicerExtensionsConfigureMacros)
 mark_as_superbuild(Slicer_DIR)
 
-# Slicer Execution Model
-find_package(SlicerExecutionModel REQUIRED)
-include(${SlicerExecutionModel_USE_FILE})
-include(${GenerateCLP_USE_FILE})
-
-# Project version number.
-set(${LOCAL_PROJECT_NAME}_VERSION_MAJOR "0")
-set(${LOCAL_PROJECT_NAME}_VERSION_MINOR "1")
-set(${LOCAL_PROJECT_NAME}_VERSION_PATCH "0")
-
-include(${CMAKE_CURRENT_SOURCE_DIR}/Common.cmake)
-
-## NOTE THERE SHOULD BE NO PROJECT STATEMENT HERE!
-## This file acts as a simple switch to initiate
-## two completely independant CMake build environments.
+find_package(Git REQUIRED)
+mark_as_superbuild(GIT_EXECUTABLE)
 
 #-----------------------------------------------------------------------------
-# Superbuild Option - Enabled by default
-#                   Phase I:  ${LOCAL_PROJECT_NAME}_SUPERBUILD is set to ON, and the
-#                             supporting packages defined in "SuperBuild.cmake"
-#                             are built.  The last package in "SuperBuild.cmake"
-#                             to be built is a recursive call to this
-#                             file with ${LOCAL_PROJECT_NAME}_SUPERBUILD explicitly
-#                             set to "OFF" to initiate Phase II
-#
-#                   Phase II: Build the ${LOCAL_PROJECT_NAME}, referencing the support
-#                             packages built in Phase I.
-#-----------------------------------------------------------------------------
-
-option(${LOCAL_PROJECT_NAME}_SUPERBUILD "Build ${LOCAL_PROJECT_NAME} and the projects it depends on via SuperBuild.cmake." ON)
-
-#-----------------------------------------------------------------------------
-# Superbuild script
-#-----------------------------------------------------------------------------
-if(${LOCAL_PROJECT_NAME}_SUPERBUILD)
+# SuperBuild setup
+option(${EXTENSION_NAME}_SUPERBUILD "Build ${EXTENSION_NAME} and the projects it depends on." ON)
+mark_as_advanced(${EXTENSION_NAME}_SUPERBUILD)
+if(${EXTENSION_NAME}_SUPERBUILD)
   include("${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild.cmake")
   return()
-else()
-  include("${CMAKE_CURRENT_SOURCE_DIR}/${LOCAL_PROJECT_NAME}.cmake")
 endif()
 
+#-----------------------------------------------------------------------------
+find_package(BLAS REQUIRED)
+find_package(LAPACKE REQUIRED)
+find_package(LAPACK REQUIRED)
+include_directories(${LAPACKE_INCLUDE_DIRS})
+
+find_package(MeshLib REQUIRED)
+
+#-----------------------------------------------------------------------------
+# Extension modules
 add_subdirectory(Modules)
+## NEXT_MODULE
 
 #-----------------------------------------------------------------------------
-# Copy of the RigidAlignment and SurfRemesh executable in the package
-
-set(CLI_BIN_DIR ${CMAKE_BINARY_DIR}/bin)
-if(WIN32)
-  set(CLI_BIN_DIR ${CLI_BIN_DIR}/$<CONFIG>/.)
-else()
-  set(CLI_BIN_DIR ${CLI_BIN_DIR}/.)
-endif()
-
-install(
-  DIRECTORY ${CLI_BIN_DIR}
-  DESTINATION ${Slicer_INSTALL_CLIMODULES_LIB_DIR}/../hidden-cli-modules/
-  USE_SOURCE_PERMISSIONS
-  COMPONENT Runtime
-)
+set(EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS)
+list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${LAPACK_DIR};LAPACK;RuntimeLibraries;/")
+list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${MeshLib_DIR};MeshLib;RuntimeLibraries;/")
+list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${RigidAlignment_DIR};RigidAlignment;RuntimeLibraries;/")
+list(APPEND EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS "${SurfRemesh_DIR};SurfRemesh;RuntimeLibraries;/")
+set(${EXTENSION_NAME}_CPACK_INSTALL_CMAKE_PROJECTS "${EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS}" CACHE STRING "List of external projects to install" FORCE)
 
 #-----------------------------------------------------------------------------
-# CPACK
-set(CPACK_INSTALL_CMAKE_PROJECTS "${CPACK_INSTALL_CMAKE_PROJECTS};${CMAKE_BINARY_DIR};${EXTENSION_NAME};ALL;/")
+list(APPEND CPACK_INSTALL_CMAKE_PROJECTS "${CMAKE_BINARY_DIR};${EXTENSION_NAME};RuntimeLibraries;/")
+list(APPEND CPACK_INSTALL_CMAKE_PROJECTS "${${EXTENSION_NAME}_CPACK_INSTALL_CMAKE_PROJECTS}")
+include(${Slicer_EXTENSION_GENERATE_CONFIG})
 include(${Slicer_EXTENSION_CPACK})
