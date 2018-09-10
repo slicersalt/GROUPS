@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.5)
 
+# Update CMake module path
+set(GROUPS_CMAKE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+list(INSERT CMAKE_MODULE_PATH 0 ${GROUPS_CMAKE_DIR})
+add_subdirectory(${GROUPS_CMAKE_DIR})
+list(INSERT CMAKE_MODULE_PATH 0 "${CMAKE_CURRENT_BINARY_DIR}/CMake")
+
 project(GROUPS)
 
 set(GROUPS_VERSION_MAJOR 1)
@@ -40,17 +46,26 @@ if(${EXTENSION_NAME}_SUPERBUILD)
 endif()
 
 #-----------------------------------------------------------------------------
-find_package(BLAS REQUIRED)
-find_package(LAPACKE REQUIRED)
-find_package(LAPACK REQUIRED)
-include_directories(${LAPACKE_INCLUDE_DIRS})
-
 find_package(MeshLib REQUIRED)
+find_package(LAPACKE REQUIRED)
+
+# Set Fortran_<id>_RUNTIME_LIBRARIES and CMAKE_Fortran_IMPLICIT_LINK_*
+set(Fortran_COMPILER_ID "${LAPACKE_Fortran_COMPILER_ID}")
+find_package(Fortran REQUIRED)
 
 #-----------------------------------------------------------------------------
 # Extension modules
 add_subdirectory(Modules)
 ## NEXT_MODULE
+
+#-----------------------------------------------------------------------------
+# Install fortran runtime libraries
+if(NOT APPLE)
+  Fortran_InstallLibrary(
+    FILES ${Fortran_${LAPACKE_Fortran_COMPILER_ID}_RUNTIME_LIBRARIES}
+    DESTINATION ${Slicer_INSTALL_THIRDPARTY_LIB_DIR} COMPONENT RuntimeLibraries
+    )
+endif()
 
 #-----------------------------------------------------------------------------
 set(EXTENSION_CPACK_INSTALL_CMAKE_PROJECTS)
