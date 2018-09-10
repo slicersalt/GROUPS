@@ -579,7 +579,6 @@ void GroupwiseRegistration::initSphericalHarmonics(int subj, const char **coeff)
 void GroupwiseRegistration::initProperties(int subj, const char **property, int nHeaderLines)
 {
 	int nVertex = m_spharm[subj].sphere->nVertex();	// this is the same as the number of properties
-	int nFace = m_spharm[subj].sphere->nFace();
 	if (m_nProperties + m_nSurfaceProperties > 0)
 	{
 		m_spharm[subj].meanProperty = new float[m_nProperties + m_nSurfaceProperties];
@@ -964,7 +963,6 @@ void GroupwiseRegistration::updateDeformation(int subject)
 	{
 		Vertex *v = (Vertex *)m_spharm[subject].sphere->vertex(i);
 		float v1[3];
-		const float *v0 = v->fv();
 		updateCoordinate(m_spharm[subject].vertex[i]->p, v1, m_spharm[subject].vertex[i]->Y, (const float **)m_spharm[subject].coeff, m_degree_inc, m_spharm[subject].pole); // update using the current incremental degree
 		{
 			Vector V(v1); V.unit();
@@ -984,7 +982,6 @@ void GroupwiseRegistration::updateLandmark(void)
 		float m[3] = {0, 0, 0};	// mean
 		for (int subj = 0; subj < m_nSubj; subj++)
 		{
-			int id = m_spharm[subj].landmark[i]->id;
 			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, (const float **)m_spharm[subj].coeff, m_degree_inc, m_spharm[subj].pole);
 
 			// mean locations
@@ -1026,7 +1023,6 @@ void GroupwiseRegistration::updateLandmarkMedian(void)
 		
 		for (int subj = 0; subj < m_nSubj; subj++)
 		{
-			int id = m_spharm[subj].landmark[i]->id;
 			updateCoordinate(m_spharm[subj].landmark[i]->p, &m_feature[subj * (nLandmark * 3 + nSamples * (m_nProperties + m_nSurfaceProperties)) + i * 3], m_spharm[subj].landmark[i]->Y, (const float **)m_spharm[subj].coeff, m_degree_inc, m_spharm[subj].pole);
 
 			// median locations
@@ -1234,9 +1230,6 @@ void GroupwiseRegistration::optimization(void)
 	cost_function costFunc(this);
 	int prev = 0;
 	int step = 1;
-	
-	int n1 = (m_degree_inc + 1) * (m_degree_inc + 1) * m_nSubj * 2;
-	int n2 = m_csize * 2 - n1;
 
 	while (m_degree_inc < m_degree)
 	{
