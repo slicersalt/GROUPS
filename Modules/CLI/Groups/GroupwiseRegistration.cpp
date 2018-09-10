@@ -107,8 +107,10 @@ GroupwiseRegistration::~GroupwiseRegistration(void)
 		delete [] m_spharm[subj].flip;
 	}
 	delete [] m_spharm;
-	for (int i = 0; i < m_propertySamples.size(); i++)
+  for (size_t i = 0; i < m_propertySamples.size(); i++)
+    {
 		delete m_propertySamples[i];
+    }
 }
 
 void GroupwiseRegistration::run(void)
@@ -218,10 +220,14 @@ void GroupwiseRegistration::init(vector<string> sphere,vector<string> surf, std:
 	// landmark information - the number of landamrks should be the same across subjects
 	if (m_UseLandmarks)
 	{
-		int nLandmark = m_spharm[0].landmark.size();
+    size_t nLandmark = m_spharm[0].landmark.size();
 		for (int subj = 0; subj < m_nSubj; subj++)
+      {
 			if (nLandmark != m_spharm[subj].landmark.size())
+        {
 				cout << " Fatal error: # of landamrks should be agreed!\n";
+        }
+      }
 	}
 
 	cout << "Computing weight terms\n";
@@ -384,10 +390,14 @@ void GroupwiseRegistration::init(const char **sphere, const char **property, con
 	// landmark information - the number of landamrks should be the same across subjects
 	if (m_UseLandmarks)
 	{
-		int nLandmark = m_spharm[0].landmark.size();
+    size_t nLandmark = m_spharm[0].landmark.size();
 		for (int subj = 0; subj < m_nSubj; subj++)
+      {
 			if (nLandmark != m_spharm[subj].landmark.size())
+        {
 				cout << " Fatal error: # of landamrks should be agreed!\n";
+        }
+      }
 	}
 
 	cout << "Computing weight terms\n";
@@ -950,7 +960,7 @@ void GroupwiseRegistration::updateDeformation(int subject)
 			updated = false;
 	
 	// deform a sphere based on the current coefficients if necessary
-	for (int i = 0; i < m_spharm[subject].vertex.size() && !updated; i++)
+  for (size_t i = 0; i < m_spharm[subject].vertex.size() && !updated; i++)
 	{
 		Vertex *v = (Vertex *)m_spharm[subject].sphere->vertex(i);
 		float v1[3];
@@ -966,8 +976,8 @@ void GroupwiseRegistration::updateDeformation(int subject)
 
 void GroupwiseRegistration::updateLandmark(void)
 {
-	int nLandmark = m_spharm[0].landmark.size();
-	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
+  int nLandmark = m_spharm[0].landmark.size();
+  int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
 
 	for (int i = 0; i < nLandmark; i++)
 	{
@@ -996,8 +1006,8 @@ void GroupwiseRegistration::updateLandmark(void)
 
 void GroupwiseRegistration::updateLandmarkMedian(void)
 {
-	int nLandmark = m_spharm[0].landmark.size();
-	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
+  int nLandmark = m_spharm[0].landmark.size();
+  int nSamples = m_propertySamples.size();	// # of sampling points for property map agreemen
 	
 	// m-estimator
 	float m1 = 0.03 * 0.01;
@@ -1061,8 +1071,8 @@ void GroupwiseRegistration::updateLandmarkMedian(void)
 
 void GroupwiseRegistration::updateProperties(void)
 {
-	int nLandmark = m_spharm[0].landmark.size();
-	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
+  int nLandmark = m_spharm[0].landmark.size();
+  int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
 
 	float err = 0;
 	for (int subj = 0; subj < m_nSubj; subj++)
@@ -1108,8 +1118,8 @@ void GroupwiseRegistration::updateProperties(void)
 
 float GroupwiseRegistration::entropy(void)
 {
-	int nLandmark = m_spharm[0].landmark.size() * 3;	// # of landmarks: we assume all the subject has the same number
-	int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
+  int nLandmark = m_spharm[0].landmark.size() * 3;	// # of landmarks: we assume all the subject has the same number
+  int nSamples = m_propertySamples.size();	// # of sampling points for property map agreement
 	
 	float E = 0;	// entropy
 	
@@ -1291,8 +1301,8 @@ int GroupwiseRegistration::icosahedron(int degree)
 	// subdivision
 	for (int d = 0; d < degree; d++)
 	{
-		int nFaces = triangles.size();
-		for (int i = 0 ; i < nFaces; i++)
+    size_t nFaces = triangles.size();
+    for (size_t i = 0 ; i < nFaces; i++)
 		{
 			Vector *f = triangles[i];
 			Vector a = f[0], b = f[1], c = f[2];
@@ -1310,7 +1320,7 @@ int GroupwiseRegistration::icosahedron(int degree)
 			Vector *f3 = new Vector[3]; f3[0] = b; f3[1] = v3; f3[2] = v1; triangles.push_back(f3);
 		}
 	}
-	for (int i = 0; i < triangles.size(); i++)
+  for (size_t i = 0; i < triangles.size(); i++)
 	{
 		Vector *f = triangles[i];
 		for (int j = 0; j < 3; j++)
@@ -1319,7 +1329,7 @@ int GroupwiseRegistration::icosahedron(int degree)
 	sort(vertices.begin(), vertices.end());
 	vertices.erase(unique(vertices.begin(), vertices.end()), vertices.end());
 
-	for (int i = 0; i < vertices.size(); i++)
+  for (size_t i = 0; i < vertices.size(); i++)
 	{
 		float *p = new float[3];
 		p[0] = vertices[i][0];
