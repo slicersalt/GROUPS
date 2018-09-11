@@ -26,6 +26,18 @@
 #include <vtkPointData.h>
 #include <vtkPointLocator.h>
 
+namespace
+{
+void check(int line, int expected, int current)
+{
+  if(current != expected)
+    {
+    std::cerr << __FILE__ << ":" << line << " - Failed to read items from stream."
+              << " [expected:" << expected << ", current:" << current << "]" << std::endl;
+    }
+}
+}
+
 GroupwiseRegistration::GroupwiseRegistration(void)
 {
 	m_maxIter = 0;
@@ -484,14 +496,16 @@ void GroupwiseRegistration::initSphericalHarmonics(int subj, vector<string> coef
 	if (coeff.size() > 0)	// previous spherical harmonics information
 	{
 		FILE *fp = fopen(coeff[subj].c_str(),"r");
-		fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]);	// optimal pole information
-		fscanf(fp, "%d", &m_spharm[subj].degree);	// previous deformation field degree
+    check(__LINE__, 3, fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]));	// optimal pole information
+    check(__LINE__, 1, fscanf(fp, "%d", &m_spharm[subj].degree));	// previous deformation field degree
 
 		if (m_spharm[subj].degree > m_degree) m_spharm[subj].degree = m_degree;	// if the previous degree is larger than desired one, just crop it.
 
 		// load previous coefficient information
 		for (int i = 0; i < (m_spharm[subj].degree + 1) * (m_spharm[subj].degree + 1); i++)
-			fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]);
+      {
+      check(__LINE__, 2, fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]));
+      }
 		fclose(fp);
 	}
 	else	// no spherical harmonic information is provided
@@ -540,14 +554,16 @@ void GroupwiseRegistration::initSphericalHarmonics(int subj, const char **coeff)
 	if (coeff != NULL)	// previous spherical harmonics information
 	{
 		FILE *fp = fopen(coeff[subj],"r");
-		fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]);	// optimal pole information
-		fscanf(fp, "%d", &m_spharm[subj].degree);	// previous deformation field degree
+    check(__LINE__, 3, fscanf(fp, "%f %f %f", &m_spharm[subj].pole[0], &m_spharm[subj].pole[1], &m_spharm[subj].pole[2]));	// optimal pole information
+    check(__LINE__, 1, fscanf(fp, "%d", &m_spharm[subj].degree));	// previous deformation field degree
 
 		if (m_spharm[subj].degree > m_degree) m_spharm[subj].degree = m_degree;	// if the previous degree is larger than desired one, just crop it.
 
 		// load previous coefficient information
 		for (int i = 0; i < (m_spharm[subj].degree + 1) * (m_spharm[subj].degree + 1); i++)
-			fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]);
+      {
+      check(__LINE__, 2, fscanf(fp, "%f %f", m_spharm[subj].coeff[i], m_spharm[subj].coeff[n + i]));
+      }
 		fclose(fp);
 	}
 	else	// no spherical harmonic information is provided
@@ -603,10 +619,19 @@ void GroupwiseRegistration::initProperties(int subj, const char **property, int 
 		
 		// remove header lines
 		char line[1024];
-		for (int j = 0; j < nHeaderLines; j++) fgets(line, sizeof(line), fp);
+    for (int j = 0; j < nHeaderLines; j++)
+      {
+      if (fgets(line, sizeof(line), fp) == NULL)
+        {
+        std::cerr << __LINE__ << ":" << __LINE__ << " - Failed to read line" << std::endl;
+        }
+      }
 		
 		// load property information
-		for (int j = 0; j < nVertex; j++) fscanf(fp, "%f", &m_spharm[subj].property[nVertex * i + j]);
+    for (int j = 0; j < nVertex; j++)
+      {
+      check(__LINE__, 1, fscanf(fp, "%f", &m_spharm[subj].property[nVertex * i + j]));
+      }
 		fclose(fp);
 	}
 	for (int i = 0; i < m_nSurfaceProperties; i++)	// x, y, z dimensions
@@ -1168,7 +1193,7 @@ float GroupwiseRegistration::propertyInterpolation(float *refMap, int index, flo
 	return property;
 }
 
-float GroupwiseRegistration::cost(float *coeff, int statusStep)
+float GroupwiseRegistration::cost(float */*coeff*/, int statusStep)
 {
 	// update defomation fields
 	for (int i = 0; i < m_nSubj; i++) updateDeformation(i);
