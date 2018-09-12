@@ -5,6 +5,12 @@ set(proj RigidAlignment)
 set(${proj}_DEPENDS
   MeshLib
   )
+if(DEFINED Slicer_SOURCE_DIR)
+  list(APPEND ${proj}_DEPENDS
+    SlicerExecutionModel
+    VTKv9
+    )
+endif()
 
 # Include dependent projects if any
 ExternalProject_Include_Dependencies(${proj} PROJECT_VAR proj)

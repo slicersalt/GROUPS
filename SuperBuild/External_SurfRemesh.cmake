@@ -5,6 +5,11 @@ set(proj SurfRemesh)
 set(${proj}_DEPENDS
   MeshLib
   )
+if(DEFINED Slicer_SOURCE_DIR)
+  list(APPEND ${proj}_DEPENDS
+    SlicerExecutionModel
+    )
+endif()
 
 # Include dependent projects if any
 ExternalProject_Include_Dependencies(${proj} PROJECT_VAR proj)
