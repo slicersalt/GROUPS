@@ -22,13 +22,13 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${CMAKE_PROJECT_NAME}_USE_SYSTEM_${proj})
 
   ExternalProject_SetIfNotDefined(
     ${CMAKE_PROJECT_NAME}_${proj}_GIT_REPOSITORY
-    "${EP_GIT_PROTOCOL}://github.com/jcfr/RigidAlignment.git"
+    "${EP_GIT_PROTOCOL}://github.com/vicory/RigidAlignment.git"
     QUIET
     )
 
   ExternalProject_SetIfNotDefined(
     ${CMAKE_PROJECT_NAME}_${proj}_GIT_TAG
-    "4435e0bd07a82d4077c66b0ba52a0b651b857936" # slicersalt-0.0.0-2017-09-11-ca0c6dfff1
+    "6545c99d5d301912e6f9471eb21754b4846b92d9" # slicersalt-0.0.0-2017-09-11-ca0c6dfff1
     QUIET
     )
 
