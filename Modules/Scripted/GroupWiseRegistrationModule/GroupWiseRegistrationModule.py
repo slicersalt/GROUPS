@@ -8,6 +8,13 @@ import platform
 import time
 import urllib
 import shutil
+from packaging import version
+
+def _setSectionResizeMode(header, *args, **kwargs):
+  if version.parse(qt.Qt.qVersion()) < version.parse("5.0.0"):
+    header.setResizeMode(*args, **kwargs)
+  else:
+    header.setSectionResizeMode(*args, **kwargs)
 
 #
 # GroupWiseRegistrationModule
@@ -110,8 +117,8 @@ class GroupWiseRegistrationModuleWidget(ScriptedLoadableModuleWidget):
     self.GroupsProperties.setColumnWidth(0, 400)
     horizontalHeader = self.GroupsProperties.horizontalHeader()
     horizontalHeader.setStretchLastSection(False)
-    horizontalHeader.setResizeMode(0, qt.QHeaderView.Stretch)
-    horizontalHeader.setResizeMode(1, qt.QHeaderView.ResizeToContents)
+    _setSectionResizeMode(horizontalHeader, 0, qt.QHeaderView.Stretch)
+    _setSectionResizeMode(horizontalHeader, 1, qt.QHeaderView.ResizeToContents)
 
 
   def cleanup(self):
