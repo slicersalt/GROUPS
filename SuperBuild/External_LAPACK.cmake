@@ -55,11 +55,6 @@ if(NOT DEFINED LAPACK_DIR AND NOT Slicer_USE_SYSTEM_LAPACK
   set(EP_SOURCE_DIR ${CMAKE_BINARY_DIR}/${proj})
   set(EP_BINARY_DIR ${CMAKE_BINARY_DIR}/${proj}-build)
 
-  set(log_command_output "0")
-  if(NOT "$ENV{DASHBOARD_TEST_FROM_CTEST}" STREQUAL "")
-    set(log_command_output "1")
-  endif()
-
   if(MSVC)
     # Generator
     find_program(NINJA_EXECUTABLE ninja)
@@ -133,9 +128,6 @@ if(NOT DEFINED LAPACK_DIR AND NOT Slicer_USE_SYSTEM_LAPACK
       ${EXTERNAL_PROJECT_CONFIGURE_COMMAND}
       ${EXTERNAL_PROJECT_BUILD_COMMAND}
       INSTALL_COMMAND ""
-      # Wrap commands to ignore log output from dashboards
-      LOG_CONFIGURE ${log_command_output}
-      LOG_BUILD     ${log_command_output}
       DEPENDS
         ${${proj}_DEPENDS}
       )
@@ -195,9 +187,6 @@ if(NOT DEFINED LAPACK_DIR AND NOT Slicer_USE_SYSTEM_LAPACK
         -DCBLAS:BOOL=OFF
         -DLAPACKE:BOOL=ON
       INSTALL_COMMAND ""
-      # Wrap commands to ignore log output from dashboards
-      LOG_CONFIGURE ${log_command_output}
-      LOG_BUILD     ${log_command_output}
       DEPENDS
         ${${proj}_DEPENDS}
       )
