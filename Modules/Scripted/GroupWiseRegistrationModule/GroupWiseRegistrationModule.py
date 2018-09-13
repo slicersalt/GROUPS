@@ -20,14 +20,14 @@ class GroupWiseRegistrationModule(ScriptedLoadableModule):
 
   def __init__(self, parent):
       ScriptedLoadableModule.__init__(self, parent)
-      self.parent.title = "Group Wise Registeration Module"  
+      self.parent.title = "Group Wise Registeration Module"
       self.parent.categories = ["Groups"]
       self.parent.dependencies = []
       self.parent.contributors = ["Mahmoud Mostapha (UNC)"]
       self.parent.helpText = """
-      Cortical correspondence method employing group-wise registration in a spherical parametrization space for the use in neuroimaging studies. 
-      The proposed method is unbiased registration that estimates a continuous smooth deformation field into an unbiased average space via entropy minimization 
-      using spherical harmonic decomposition of the spherical deformation field. 
+      Cortical correspondence method employing group-wise registration in a spherical parametrization space for the use in neuroimaging studies.
+      The proposed method is unbiased registration that estimates a continuous smooth deformation field into an unbiased average space via entropy minimization
+      using spherical harmonic decomposition of the spherical deformation field.
       """
       self.parent.acknowledgementText = """
         This work was supported by NIH NIBIB R01EB021391
@@ -197,7 +197,7 @@ class GroupWiseRegistrationModuleWidget(ScriptedLoadableModuleWidget):
 
   def onSelectIterations(self):
     self.Iterations = self.GroupsIterations.value
- 
+
   def onApplyButton(self):
 
     self.PropertiesNamesSelected = []
@@ -213,9 +213,9 @@ class GroupWiseRegistrationModuleWidget(ScriptedLoadableModuleWidget):
           self.PropertiesWeightsSelected.append(spinbox.value)
 
     logic = GroupWiseRegistrationModuleLogic()
-    endGroups = logic.runGroups(modelsDir=self.InputModelsDirectory, sphereDir=self.InputSphericalModelsDirectory, outputCoefficientDir=self.OutputCoefficientsDirectory, outputDir=self.OutputModelsDirectory, Landmarks=self.Landmarks, 
+    endGroups = logic.runGroups(modelsDir=self.InputModelsDirectory, sphereDir=self.InputSphericalModelsDirectory, outputCoefficientDir=self.OutputCoefficientsDirectory, outputDir=self.OutputModelsDirectory, Landmarks=self.Landmarks,
                                     propertiesNames = self.PropertiesNamesSelected, propertiesWeights = self.PropertiesWeightsSelected, degree = self.SpharmDegree, maxIter = self.Iterations)
-#     
+#
 # GroupWiseRegistrationModuleLogic
 #
 class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
@@ -251,7 +251,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     file = open(filePathCSV, 'w')
     cw = csv.writer(file, delimiter=',')
     cw.writerow(['VTK Files'])
-    # Add the path of the vtk files 
+    # Add the path of the vtk files
     for i in range(0, len(listMesh)):
       #VTKfilepath = os.path.join( modelsDir, listMesh[i])
       VTKfilepath = modelsDir + '/' + listMesh[i]
@@ -272,7 +272,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
 
     # Deletion of the CSV files in the Slicer temporary directory
     if os.path.exists(filePathCSV):
-      os.remove(filePathCSV)
+      os.remove(filePathCSV)
     print "--- Groups Running ---"
     # Creation of the parameters of Rigid Alignment
     Groups_parameters = {}
@@ -292,7 +292,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     Groups_parameters["degree"]         = degree
     Groups_parameters["maxIter"]        = maxIter
     #print(Groups_parameters)
-    G = slicer.modules.groups  
+    G = slicer.modules.groups
     # Launch Groups
     cliNode = slicer.cli.run(G, None, Groups_parameters, wait_for_completion=True)
     def printStatus(caller, event):
@@ -302,9 +302,9 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     cliNode.AddObserver('ModifiedEvent', printStatus)
     print "--- Groups Done ---"
 
-    # ------------------------------------ # 
-    # ------------ SurfRemesh ------------ # 
-    # ------------------------------------ # 
+    # ------------------------------------ #
+    # ------------ SurfRemesh ------------ #
+    # ------------------------------------ #
     print "--- function runSurfRemesh() ---"
     """
     Calling SurfRemesh CLI
@@ -343,9 +343,9 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
       # Launch SurfRemesh
       slicer.cli.run(SR, None, SurfRemesh_parameters, wait_for_completion=True)
       print "--- Surface " + str(i) + " Remesh Done ---"
-      # ------------------------------------ # 
-      # ------------ Color Maps ------------ # 
-      # ------------------------------------ # 
+      # ------------------------------------ #
+      # ------------ Color Maps ------------ #
+      # ------------------------------------ #
       reader_in = vtk.vtkPolyDataReader()
       reader_in.SetFileName(str(Mesh))
       reader_in.Update()
@@ -377,7 +377,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     file = open(filePathCSV, 'w')
     cw = csv.writer(file, delimiter=',')
     cw.writerow(['VTK Files'])
-    # Add the path of the vtk files 
+    # Add the path of the vtk files
     for i in range(0, len(listOutputMesh)):
       #VTKfilepath = os.path.join( outputDir, listOutputMesh[i])
       VTKfilepath = outputDir + '/' + listOutputMesh[i]
