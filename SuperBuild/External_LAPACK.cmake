@@ -156,6 +156,19 @@ if(NOT DEFINED LAPACK_DIR AND NOT Slicer_USE_SYSTEM_LAPACK
     mark_as_superbuild(Fortran_COMPILER_ID:STRING)
     mark_as_superbuild(Fortran_${Fortran_COMPILER_ID}_EXECUTABLE)
 
+    set(EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS)
+    if(APPLE)
+      # Since Detect/Verify tests associated with FortranCInterface CMake module
+      # fails when at least the CMAKE_OSX_ARCHITECTURES option is set to x86_64,
+      # we explicitly disable the CMAKE_OSX_* options here.
+      # Failure was observed when using gfortran_osx-64 from conda.
+      list(APPEND EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS
+        -DCMAKE_OSX_ARCHITECTURES:STRING=
+        -DCMAKE_OSX_SYSROOT:PATH=
+        -DCMAKE_OSX_DEPLOYMENT_TARGET:STRING=
+        )
+    endif()
+
     ExternalProject_Add(${proj}
       ${${proj}_EP_ARGS}
       GIT_REPOSITORY "${Slicer_${proj}_GIT_REPOSITORY}"
@@ -163,6 +176,7 @@ if(NOT DEFINED LAPACK_DIR AND NOT Slicer_USE_SYSTEM_LAPACK
       SOURCE_DIR ${EP_SOURCE_DIR}
       BINARY_DIR ${EP_BINARY_DIR}
       CMAKE_CACHE_ARGS
+        ${EXTERNAL_PROJECT_OPTIONAL_CMAKE_CACHE_ARGS}
         # Compiler settings
         -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
         -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
