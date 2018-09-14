@@ -14,7 +14,11 @@
 #include <vector>
 #include <string>
 
+#ifdef WIN32
+#include "dirent.h"
+#else
 #include <dirent.h>
+#endif
 #include "GroupsCLP.h"
 #include "GroupwiseRegistration.h"
 #include <iostream>
