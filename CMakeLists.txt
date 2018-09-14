@@ -65,6 +65,8 @@ if(NOT APPLE)
     FILES ${Fortran_${LAPACKE_Fortran_COMPILER_ID}_RUNTIME_LIBRARIES}
     DESTINATION ${Slicer_INSTALL_THIRDPARTY_LIB_DIR} COMPONENT RuntimeLibraries
     )
+else()
+  set(${EXTENSION_NAME}_FIXUP_BUNDLE_LIBRARY_DIRECTORIES ${Fortran_${LAPACKE_Fortran_COMPILER_ID}_RUNTIME_DIRECTORIES} CACHE STRING "List of fixup bundle library directories" FORCE)
 endif()
 
 #-----------------------------------------------------------------------------
