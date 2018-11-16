@@ -172,7 +172,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       RigidAlignment_parameters["landmark"]   = fiducialDir
       RigidAlignment_parameters["sphere"]     = UnitSphere
       RigidAlignment_parameters["output"]     = outputsphereDir
-      RA = slicer.modules.rigidwrapper
+      RA = slicer.modules.rigidalignment
       # Launch Rigid Alignment
       slicer.cli.run(RA, None, RigidAlignment_parameters, wait_for_completion=True)
       print "--- Rigid Alignment Done ---"
