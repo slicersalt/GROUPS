@@ -215,6 +215,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         print "--- Surface " + str(i) + " Remesh Done ---"
         # ------------------------------------ # 
         # ------------ Color Maps ------------ # 
+        # ------- and encode landmarks ------- #
         # ------------------------------------ # 
         reader_in = vtk.vtkPolyDataReader()
         reader_in.SetFileName(str(Mesh))
@@ -229,7 +230,35 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         new_mesh.GetPointData().SetActiveScalars("_paraPhi")
         new_mesh.GetPointData().SetScalars(phiArray)
         new_mesh.Modified()
-        # write results
+
+        # encode landmarks
+        Fiducial = fiducialDir + '/' + listMesh[i].split("_pp_surf_SPHARM",1)[0] + "_fid.fcsv"
+        fid = open(Fiducial)
+        lines = fid.readlines()
+        pts = []
+        for line in lines:
+          if line[0] != '#':
+            s = line.split(',')
+            pt = [ float(s[1]), float(s[2]), float(s[3])]
+            pts.append(pt)
+
+        loc = vtk.vtkKdTreePointLocator()
+        loc.SetDataSet(new_mesh)
+        loc.BuildLocator()
+
+        ptArray = vtk.vtkDoubleArray()
+        ptArray.SetNumberOfComponents(1)
+        ptArray.SetNumberOfValues(new_mesh.GetNumberOfPoints())
+        ptArray.SetName('Landmarks')
+        for i in range(0,ptArray.GetNumberOfValues()):
+          ptArray.SetValue(i,0.0)
+        
+        for pt in pts:
+          ind = loc.FindClosestPoint(pt)
+          ptArray.SetValue(ind,ind)
+        
+        new_mesh.GetPointData().AddArray(ptArray)
+        # write circle out
         polyDataWriter = vtk.vtkPolyDataWriter()
         polyDataWriter.SetInputData(new_mesh)
         polyDataWriter.SetFileName(str(OutputMesh))
