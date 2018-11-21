@@ -72,9 +72,6 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
 
     # Connections
     # Directories
-    self.CollapsibleButton_Directories.connect('clicked()',
-                                                   lambda: self.onSelectedCollapsibleButtonOpen(
-                                                     self.CollapsibleButton_Directories))
     self.RigidAlignmentInputModelsDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     self.RigidAlignmentInputFiducialFilesDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     self.RigidAlignmentCommonSphereDirectory.connect('directoryChanged(const QString &)', self.onSelect)
