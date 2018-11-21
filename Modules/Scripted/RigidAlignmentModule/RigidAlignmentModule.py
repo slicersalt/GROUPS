@@ -137,6 +137,18 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
+  def loadShapes(self, filePathCSV):
+      parameters = {}
+      parameters["CSVFile"] = filePathCSV
+      #   If a binary of SPV has been installed
+      if hasattr(slicer.modules, 'shapepopulationviewer'):
+        SPV = slicer.modules.shapepopulationviewer
+      #   If SPV has been installed via the Extension Manager
+      elif hasattr(slicer.modules, 'launcher'):
+        SPV = slicer.modules.launcher
+      # Launch SPV
+      slicer.cli.run(SPV, None, parameters, wait_for_completion=True)
+
   def runRigidAlignment(self, modelsDir, fiducialDir, sphereDir, outputsphereDir, outputsurfaceDir):
       
       # ------------------------------------ # 
@@ -173,16 +185,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       file.close()
 
       # Creation of the parameters of SPV
-      parameters = {}
-      parameters["CSVFile"] = filePathCSV
-      #   If a binary of SPV has been installed
-      if hasattr(slicer.modules, 'shapepopulationviewer'):
-        SPV = slicer.modules.shapepopulationviewer
-      #   If SPV has been installed via the Extension Manager
-      elif hasattr(slicer.modules, 'launcher'):
-        SPV = slicer.modules.launcher
-      # Launch SPV
-      slicer.cli.run(SPV, None, parameters, wait_for_completion=True)
+      self.loadShapes(filePathCSV)
 
       # Deletion of the CSV files in the Slicer temporary directory
       if os.path.exists(filePathCSV):
@@ -284,11 +287,8 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
           cw.writerow([VTKfilepath])
       file.close()
 
-      # Creation of the parameters of SPV
-      parameters = {}
-      parameters["CSVFile"] = filePathCSV
       # Launch SPV
-      slicer.cli.run(SPV, None, parameters, wait_for_completion=True)
+      self.loadShapes(filePathCSV)
 
       # Deletion of the CSV files in the Slicer temporary directory
       if os.path.exists(filePathCSV):
