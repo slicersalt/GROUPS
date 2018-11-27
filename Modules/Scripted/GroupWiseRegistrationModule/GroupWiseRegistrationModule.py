@@ -350,3 +350,5 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
     for mesh in outputMeshes:
       polydata, modelName = mesh
       slicer.modules.shapepopulationviewer.widgetRepresentation().loadModel(mesh, modelName)
+
+    slicer.util.selectModule(slicer.modules.shapepopulationviewer)
