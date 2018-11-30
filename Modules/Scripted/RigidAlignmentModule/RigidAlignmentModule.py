@@ -72,9 +72,6 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
 
     # Connections
     # Directories
-    self.CollapsibleButton_Directories.connect('clicked()',
-                                                   lambda: self.onSelectedCollapsibleButtonOpen(
-                                                     self.CollapsibleButton_Directories))
     self.RigidAlignmentInputModelsDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     self.RigidAlignmentInputFiducialFilesDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     self.RigidAlignmentCommonSphereDirectory.connect('directoryChanged(const QString &)', self.onSelect)
@@ -161,36 +158,6 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       if listMesh.count(".DS_Store"):
         listMesh.remove(".DS_Store")
 
-      # Creation of a CSV file to load the vtk files in ShapePopulationViewer
-      #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewInputDataForVisualizationInSPV.csv')
-      filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewInputDataForVisualizationInSPV.csv'
-      file = open(filePathCSV, 'w')
-      cw = csv.writer(file, delimiter=',')
-      cw.writerow(['VTK Files'])
-      # Add the path of the vtk files 
-      for i in range(0, len(listMesh)):
-        #VTKfilepath = os.path.join( modelsDir, listMesh[i])
-        VTKfilepath = modelsDir + '/' + listMesh[i]
-        if os.path.exists(VTKfilepath):
-          cw.writerow([VTKfilepath])
-      file.close()
-
-      # Creation of the parameters of SPV
-      parameters = {}
-      parameters["CSVFile"] = filePathCSV
-      #   If a binary of SPV has been installed
-      if hasattr(slicer.modules, 'shapepopulationviewer'):
-        SPV = slicer.modules.shapepopulationviewer
-      #   If SPV has been installed via the Extension Manager
-      elif hasattr(slicer.modules, 'launcher'):
-        SPV = slicer.modules.launcher
-      # Launch SPV
-      slicer.cli.run(SPV, None, parameters, wait_for_completion=True)
-
-      # Deletion of the CSV files in the Slicer temporary directory
-      if os.path.exists(filePathCSV):
-        os.remove(filePathCSV)
-
       # Creation of a file name for the common unit sphere
       listUnitSphere = os.listdir(sphereDir)
       if listUnitSphere.count(".DS_Store"):
@@ -226,6 +193,8 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       listSphere = os.listdir(outputsphereDir)
       if listSphere.count(".DS_Store"):
         listSphere.remove(".DS_Store")
+
+      outputMeshes = []
 
       for i in range(0,len(listMesh)):
         #Mesh = os.path.join( modelsDir, listMesh[i])
@@ -289,39 +258,21 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
           ptArray.SetValue(ind,ind)
         
         new_mesh.GetPointData().AddArray(ptArray)
-        # write circle out
+
+        # write results
         polyDataWriter = vtk.vtkPolyDataWriter()
         polyDataWriter.SetInputData(new_mesh)
         polyDataWriter.SetFileName(str(OutputMesh))
         polyDataWriter.Write()
+
+        outputMeshes.append((new_mesh, str(OutputMesh)))
       print "--- Surf Remesh Done ---"
 
       print "--- Inspecting Results ---"
-      # List all the vtk files in the outputsurfaceDir
-      listOutputMesh = os.listdir(outputsurfaceDir)
-      if listOutputMesh.count(".DS_Store"):
-        listOutputMesh.remove(".DS_Store")
+      # Load vtk files in ShapePopulationViewer
+      slicer.modules.shapepopulationviewer.widgetRepresentation().deleteAll()
+      for mesh in outputMeshes:
+        polydata, modelName = mesh
+        slicer.modules.shapepopulationviewer.widgetRepresentation().loadModel(mesh, modelName)
 
-      # Creation of a CSV file to load the output vtk files in ShapePopulationViewer
-      #filePathCSV = os.path.join( slicer.app.temporaryPath, 'PreviewOutputDataForVisualizationInSPV.csv')
-      filePathCSV = slicer.app.temporaryPath + '/' + 'PreviewOutputDataForVisualizationInSPV.csv'
-      file = open(filePathCSV, 'w')
-      cw = csv.writer(file, delimiter=',')
-      cw.writerow(['VTK Files'])
-      # Add the path of the vtk files 
-      for i in range(0, len(listOutputMesh)):
-        #VTKfilepath = os.path.join( outputsurfaceDir, listOutputMesh[i])
-        VTKfilepath = outputsurfaceDir + '/' + listOutputMesh[i]
-        if os.path.exists(VTKfilepath):
-          cw.writerow([VTKfilepath])
-      file.close()
-
-      # Creation of the parameters of SPV
-      parameters = {}
-      parameters["CSVFile"] = filePathCSV
-      # Launch SPV
-      slicer.cli.run(SPV, None, parameters, wait_for_completion=True)
-
-      # Deletion of the CSV files in the Slicer temporary directory
-      if os.path.exists(filePathCSV):
-        os.remove(filePathCSV)
+      slicer.util.selectModule(slicer.modules.shapepopulationviewer)
