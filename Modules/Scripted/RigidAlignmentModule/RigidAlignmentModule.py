@@ -250,12 +250,12 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         ptArray.SetNumberOfComponents(1)
         ptArray.SetNumberOfValues(new_mesh.GetNumberOfPoints())
         ptArray.SetName('Landmarks')
-        for i in range(0,ptArray.GetNumberOfValues()):
-          ptArray.SetValue(i,0.0)
+        for ind in range(0,ptArray.GetNumberOfValues()):
+          ptArray.SetValue(ind,0.0)
         
-        for pt in pts:
-          ind = loc.FindClosestPoint(pt)
-          ptArray.SetValue(ind,ind)
+        for l_ind in range(0, len(pts)):
+          ind = loc.FindClosestPoint(pts[l_ind])
+          ptArray.SetValue(ind,l_ind+1)
         
         new_mesh.GetPointData().AddArray(ptArray)
 
