@@ -157,6 +157,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       listMesh = os.listdir(modelsDir)
       if listMesh.count(".DS_Store"):
         listMesh.remove(".DS_Store")
+      listMesh.sort()      
 
       # Creation of a file name for the common unit sphere
       listUnitSphere = os.listdir(sphereDir)
@@ -193,6 +194,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       listSphere = os.listdir(outputsphereDir)
       if listSphere.count(".DS_Store"):
         listSphere.remove(".DS_Store")
+      listSphere.sort()
 
       outputMeshes = []
 
