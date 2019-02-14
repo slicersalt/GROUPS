@@ -299,6 +299,10 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
 
     outputMeshes = []
 
+    listMesh = os.listdir(modelsDir)
+    if listMesh.count(".DS_Store"):
+      listMesh.remove(".DS_Store")
+
     for i in range(0,len(listMesh)):
       #Mesh = os.path.join( modelsDir, listMesh[i])
       Mesh = modelsDir + '/' + listMesh[i]
