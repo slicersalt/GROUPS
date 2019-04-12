@@ -1,5 +1,7 @@
 # Group-wise Registration for Shape Correspondence (Groups)
 
+## Fork used for SlicerSALT packaging, official repository at https://github.com/NIRALUser/GROUPS
+
 ## Description
 Refer to the following papers for details - Lyu et al. IPMI 2013, Lyu et al. Frontiers in Neuroscience 2015
 
