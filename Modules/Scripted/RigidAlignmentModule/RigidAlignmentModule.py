@@ -143,7 +143,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       # ---------- RigidAlignment ---------- # 
       # ------------------------------------ # 
 
-      print "--- function runRigidAlignment() ---"
+      print("--- function runRigidAlignment() ---")
       """
       Calling RigidAlignment CLI
           Arguments:
@@ -152,7 +152,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
            --sphere [<std::string> common unit sphere]
            --output [<std::string> output sphers directory] 
       """
-      print "--- Inspecting Input Data---"
+      print("--- Inspecting Input Data---")
       # List all the vtk files in the modelsDir
       listMesh = os.listdir(modelsDir)
       if listMesh.count(".DS_Store"):
@@ -166,7 +166,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       #UnitSphere = os.path.join(sphereDir, listUnitSphere[0])
       UnitSphere = sphereDir + '/' + listUnitSphere[0]
       
-      print "--- Rigid Alignment Running ---"
+      print("--- Rigid Alignment Running ---")
       # Creation of the parameters of Rigid Alignment
       RigidAlignment_parameters = {}
       RigidAlignment_parameters["mesh"]       = modelsDir
@@ -176,12 +176,12 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       RA = slicer.modules.rigidalignment
       # Launch Rigid Alignment
       slicer.cli.run(RA, None, RigidAlignment_parameters, wait_for_completion=True)
-      print "--- Rigid Alignment Done ---"
+      print("--- Rigid Alignment Done ---")
 
       # ------------------------------------ # 
       # ------------ SurfRemesh ------------ # 
       # ------------------------------------ # 
-      print "--- function runSurfRemesh() ---"
+      print("--- function runSurfRemesh() ---")
       """
       Calling SurfRemesh CLI
           Arguments:
@@ -214,7 +214,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         SR = slicer.modules.sremesh
         # Launch SurfRemesh
         slicer.cli.run(SR, None, SurfRemesh_parameters, wait_for_completion=True)
-        print "--- Surface " + str(i) + " Remesh Done ---"
+        print("--- Surface " + str(i) + " Remesh Done ---")
         # ------------------------------------ # 
         # ------------ Color Maps ------------ # 
         # ------- and encode landmarks ------- #
@@ -268,9 +268,9 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         polyDataWriter.Write()
 
         outputMeshes.append((new_mesh, str(OutputMesh)))
-      print "--- Surf Remesh Done ---"
+      print("--- Surf Remesh Done ---")
 
-      print "--- Inspecting Results ---"
+      print("--- Inspecting Results ---")
       # Load vtk files in ShapePopulationViewer
       slicer.modules.shapepopulationviewer.widgetRepresentation().deleteAll()
       for mesh in outputMeshes:

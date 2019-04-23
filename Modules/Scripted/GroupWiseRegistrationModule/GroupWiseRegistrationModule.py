@@ -235,7 +235,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
   def runGroups(self, modelsDir, sphereDir, outputCoefficientDir, outputDir, Landmarks=False, propertiesNames=[], propertiesWeights=[], degree=5, maxIter=5000):
-    print "--- function runGroupWiseRegisteration() ---"
+    print("--- function runGroupWiseRegisteration() ---")
     """
     Calling Groups CLI
         Arguments:
@@ -247,7 +247,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
          --degree: Degree of deformation field
          --maxIter: Maximum number of iteration
     """
-    print "--- Groups Running ---"
+    print("--- Groups Running ---")
     # Creation of the parameters of Rigid Alignment
     Groups_parameters = {}
     Groups_parameters["dirSurf"]           = modelsDir
@@ -274,12 +274,12 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
       if caller.IsA('vtkMRMLCommandLineModuleNode'):
         print("Status is %s" % caller.GetStatusString())
     cliNode.AddObserver('ModifiedEvent', printStatus)
-    print "--- Groups Done ---"
+    print("--- Groups Done ---")
 
     # ------------------------------------ #
     # ------------ SurfRemesh ------------ #
     # ------------------------------------ #
-    print "--- function runSurfRemesh() ---"
+    print("--- function runSurfRemesh() ---")
     """
     Calling SurfRemesh CLI
         Arguments:
@@ -322,7 +322,7 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
       SR = slicer.modules.sremesh
       # Launch SurfRemesh
       slicer.cli.run(SR, None, SurfRemesh_parameters, wait_for_completion=True)
-      print "--- Surface " + str(i) + " Remesh Done ---"
+      print("--- Surface " + str(i) + " Remesh Done ---")
       # ------------------------------------ #
       # ------------ Color Maps ------------ #
       # ------------------------------------ #
@@ -346,9 +346,9 @@ class GroupWiseRegistrationModuleLogic(ScriptedLoadableModuleLogic):
       polyDataWriter.Write()
 
       outputMeshes.append((new_mesh, str(OutputMesh)))
-    print "--- Surf Remesh Done ---"
+    print("--- Surf Remesh Done ---")
 
-    print "--- Inspecting Results ---"
+    print("--- Inspecting Results ---")
     # Load vtk files in ShapePopulationViewer
     slicer.modules.shapepopulationviewer.widgetRepresentation().deleteAll()
     for mesh in outputMeshes:
