@@ -24,8 +24,8 @@ class RigidAlignmentModule(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "Rigid Alignment Module" 
-    self.parent.categories = ["Groups"]
+    self.parent.title = "SPHARM-PDM Correspondence Improvement"
+    self.parent.categories = ["Shape Creation"]
     self.parent.dependencies = []
     self.parent.contributors = ["Mahmoud Mostapha (UNC), Jared Vicory (Kitware), David Allemang (Kitware)"]
     self.parent.helpText = """
