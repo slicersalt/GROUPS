@@ -1,2 +1,2 @@
 add_subdirectory(RigidAlignmentModule)
-add_subdirectory(GroupWiseRegistrationModule)
+# add_subdirectory(GroupWiseRegistrationModule)
