@@ -20,10 +20,10 @@ class RigidAlignmentModule(ScriptedLoadableModule):
 
   def __init__(self, parent):
     ScriptedLoadableModule.__init__(self, parent)
-    self.parent.title = "Rigid Alignment Module" 
-    self.parent.categories = ["Groups"]
+    self.parent.title = "SPHARM-PDM Correspondence Improvement"
+    self.parent.categories = ["Shape Creation"]
     self.parent.dependencies = []
-    self.parent.contributors = ["Mahmoud Mostapha (UNC)"] 
+    self.parent.contributors = ["Mahmoud Mostapha (UNC), Jared Vicory (Kitware)"]
     self.parent.helpText = """
     Rigid alignment of the landmarks on the unit sphere: the input models share the same unit sphere 
     and their landmarks are defined as spacial coordinates (x,y,z) of the input model. 
