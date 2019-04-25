@@ -28,7 +28,7 @@ if(NOT DEFINED ${proj}_DIR AND NOT ${CMAKE_PROJECT_NAME}_USE_SYSTEM_${proj})
 
   ExternalProject_SetIfNotDefined(
     ${CMAKE_PROJECT_NAME}_${proj}_GIT_TAG
-    "f7d13dfcab714a4f9f10f722ebcddc5e7f4566ee" # slicersalt-0.0.0-2017-12-11-9eb4d15ce
+    "a63a13a19018cf331942c1192ef2ebf9b37b2020" # slicersalt-0.0.0-2017-12-11-9eb4d15ce
     QUIET
     )
 
