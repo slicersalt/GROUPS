@@ -103,15 +103,15 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
   #   Directories
   #
   def onSelect(self):
-    InputModelsDirectory = self.RigidAlignmentInputModelsDirectory.directory.encode('utf-8')
+    InputModelsDirectory = self.RigidAlignmentInputModelsDirectory.directory
     self.InputModelsDirectory = InputModelsDirectory
-    InputFiducialFilesDirectory = self.RigidAlignmentInputFiducialFilesDirectory.directory.encode('utf-8')
+    InputFiducialFilesDirectory = self.RigidAlignmentInputFiducialFilesDirectory.directory
     self.InputFiducialFilesDirectory = InputFiducialFilesDirectory
-    CommonSphereDirectory = self.RigidAlignmentCommonSphereDirectory.directory.encode('utf-8')
+    CommonSphereDirectory = self.RigidAlignmentCommonSphereDirectory.directory
     self.CommonSphereDirectory = CommonSphereDirectory
-    OutputSphericalModelsDirectory = self.RigidAlignmentOutputSphericalModelsDirectory.directory.encode('utf-8')
+    OutputSphericalModelsDirectory = self.RigidAlignmentOutputSphericalModelsDirectory.directory
     self.OutputSphericalModelsDirectory = OutputSphericalModelsDirectory
-    OutputModelsDirectory = self.RigidAlignmentOutputModelsDirectory.directory.encode('utf-8')
+    OutputModelsDirectory = self.RigidAlignmentOutputModelsDirectory.directory
     self.OutputModelsDirectory = OutputModelsDirectory
     # Check if each directory has been choosen
     self.ApplyButton.enabled = self.InputModelsDirectory != "." and self.InputFiducialFilesDirectory != "." and self.CommonSphereDirectory!= "." and self.OutputSphericalModelsDirectory != "." and self.OutputModelsDirectory != "."
@@ -119,9 +119,6 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
   def onApplyButton(self):
     logic = RigidAlignmentModuleLogic()
     endRigidAlignment = logic.runRigidAlignment(modelsDir=self.InputModelsDirectory, fiducialDir=self.InputFiducialFilesDirectory, sphereDir=self.CommonSphereDirectory, outputsphereDir=self.OutputSphericalModelsDirectory, outputsurfaceDir=self.OutputModelsDirectory)
-    ## RigidAlignment didn't run because of invalid inputs
-    if not endRigidAlignment:
-        self.errorLabel.show()
 
 #
 # RigidAlignmentModuleLogic
@@ -150,7 +147,7 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
            --mesh [<std::string> input models directory]
            --landmark [<std::string> input fiducial files directory]
            --sphere [<std::string> common unit sphere]
-           --output [<std::string> output sphers directory] 
+           --output [<std::string> output spheres directory] 
       """
       print("--- Inspecting Input Data---")
       # List all the vtk files in the modelsDir
@@ -163,8 +160,8 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       listUnitSphere = os.listdir(sphereDir)
       if listUnitSphere.count(".DS_Store"):
         listUnitSphere.remove(".DS_Store")
-      #UnitSphere = os.path.join(sphereDir, listUnitSphere[0])
-      UnitSphere = sphereDir + '/' + listUnitSphere[0]
+      UnitSphere = os.path.join(sphereDir, listUnitSphere[0])
+      # UnitSphere = sphereDir + '/' + listUnitSphere[0]
       
       print("--- Rigid Alignment Running ---")
       # Creation of the parameters of Rigid Alignment
@@ -199,12 +196,12 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
       outputMeshes = []
 
       for i in range(0,len(listMesh)):
-        #Mesh = os.path.join( modelsDir, listMesh[i])
-        Mesh = modelsDir + '/' + listMesh[i]
-        #Sphere = os.path.join(outputsphereDir, listSphere[i])
-        Sphere = outputsphereDir + '/' + listSphere[i]
-        #Mesh = os.path.join(outputsurfaceDir, listSphere[i].split("_rotSphere.vtk",1)[0] + '_aligned.vtk')
-        OutputMesh = outputsurfaceDir + '/' + listSphere[i].split("_rotSphere.vtk",1)[0] + '_aligned.vtk'
+        Mesh = os.path.join( modelsDir, listMesh[i])
+        # Mesh = modelsDir + '/' + listMesh[i]
+        Sphere = os.path.join(outputsphereDir, listSphere[i])
+        # Sphere = outputsphereDir + '/' + listSphere[i]
+        OutputMesh = os.path.join(outputsurfaceDir, listSphere[i].split("_rotSphere.vtk",1)[0] + '_aligned.vtk')
+        # OutputMesh = outputsurfaceDir + '/' + listSphere[i].split("_rotSphere.vtk",1)[0] + '_aligned.vtk'
         # Creation of the parameters of SurfRemesh
         SurfRemesh_parameters = {}
         SurfRemesh_parameters["temp"]       = Sphere
@@ -234,15 +231,19 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
         new_mesh.Modified()
 
         # encode landmarks
-        Fiducial = fiducialDir + '/' + listMesh[i].split("_pp_surf_SPHARM",1)[0] + "_fid.fcsv"
+        # Fiducial = fiducialDir + '/' + listMesh[i].split("_pp_surf_SPHARM",1)[0] + "_fid.fcsv"
+        Fiducial = os.path.join(fiducialDir, "{}_fid.fcsv".format(listMesh[i].split("_pp_surf_SPHARM",1)[0]))
         fid = open(Fiducial)
         lines = fid.readlines()
         pts = []
-        for line in lines:
-          if line[0] != '#':
-            s = line.split(',')
-            pt = [ float(s[1]), float(s[2]), float(s[3])]
-            pts.append(pt)
+        with open(Fiducial) as fid:
+          lines = fid.readlines()
+          for line in lines:
+            if line[0] != '#':
+              s = line.split(',')
+              pt = [float(s[1]), float(s[2]), float(s[3])]
+              pts.append(pt)
+              print(line)
 
         loc = vtk.vtkKdTreePointLocator()
         loc.SetDataSet(new_mesh)
@@ -259,7 +260,9 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
           ind = loc.FindClosestPoint(pts[l_ind])
           ptArray.SetValue(ind,l_ind+1)
         
+        new_mesh.GetPointData().SetActiveScalars("Landmarks")
         new_mesh.GetPointData().AddArray(ptArray)
+        new_mesh.Modified()
 
         # write results
         polyDataWriter = vtk.vtkPolyDataWriter()
@@ -272,9 +275,9 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
 
       print("--- Inspecting Results ---")
       # Load vtk files in ShapePopulationViewer
-      slicer.modules.shapepopulationviewer.widgetRepresentation().deleteAll()
+      slicer.modules.shapepopulationviewer.widgetRepresentation().deleteModels()
       for mesh in outputMeshes:
         polydata, modelName = mesh
-        slicer.modules.shapepopulationviewer.widgetRepresentation().loadModel(mesh, modelName)
+        slicer.modules.shapepopulationviewer.widgetRepresentation().loadModel(polydata, modelName)
 
       slicer.util.selectModule(slicer.modules.shapepopulationviewer)
