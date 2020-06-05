@@ -71,10 +71,6 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
     #   Apply CLIs
     self.ui.ApplyButton.connect('clicked(bool)', self.onApplyButton)
 
-    self.ui.InputDirectory.directory = '/home/allem/Downloads/groups/models'
-    self.ui.FiducialsDirectory.directory = '/home/allem/Downloads/groups/fiducials'
-    self.ui.OutputDirectory.directory = '/home/allem/Downloads/groups/out'
-
     # Refresh Apply button state
     self.onSelect()
 
