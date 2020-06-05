@@ -19,9 +19,9 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout">
+  <layout class="QGridLayout">
    <item row="1" column="0" colspan="2">
-    <widget class="QPushButton" name="pushButton_RigidAlignment">
+    <widget class="QPushButton" name="ApplyButton">
      <property name="enabled">
       <bool>false</bool>
      </property>
@@ -31,7 +31,7 @@
     </widget>
    </item>
    <item row="0" column="0" colspan="2">
-    <widget class="ctkCollapsibleButton" name="CollapsibleButton_Directories">
+    <widget class="ctkCollapsibleButton">
      <property name="enabled">
       <bool>true</bool>
      </property>
@@ -44,15 +44,15 @@
      <property name="contentsFrameShape">
       <enum>QFrame::StyledPanel</enum>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_1">
+     <layout class="QVBoxLayout">
       <item>
-       <widget class="QWidget" name="widget_Directories" native="true">
-        <layout class="QFormLayout" name="formLayout">
+       <widget class="QWidget" native="true">
+        <layout class="QFormLayout">
          <property name="fieldGrowthPolicy">
           <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
          </property>
          <item row="1" column="0">
-          <widget class="QLabel" name="label_RigidAlignmentInputModelsDirectory">
+          <widget class="QLabel">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Input Directory &lt;br/&gt;The input directory should contain the time-regressed shapes computed by RegressionComputation&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
@@ -62,47 +62,27 @@
           </widget>
          </item>
          <item row="1" column="1">
-          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentInputModelsDirectory">
+          <widget class="ctkDirectoryButton" name="InputDirectory">
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;center&quot;&gt;Input Directory &lt;br/&gt;The input directory should contain the time-regressed shapes computed by RegressionComputation&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
           </widget>
          </item>
          <item row="2" column="0">
-          <widget class="QLabel" name="label_RigidAlignmentInputFiducialFilesDirectory">
+          <widget class="QLabel">
            <property name="text">
             <string>Input Fiducial Files Directory</string>
            </property>
           </widget>
          </item>
          <item row="2" column="1">
-          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentInputFiducialFilesDirectory"/>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="label_RigidAlignmentCommonSphereDirectory">
-           <property name="text">
-            <string>Input Common Unit Sphere</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentCommonSphereDirectory"/>
-         </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="label_RigidAlignmentOutputSphericalModelsDirectory">
-           <property name="text">
-            <string>Output Spherical Models Directory</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="1">
-          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentOutputSphericalModelsDirectory"/>
+          <widget class="ctkDirectoryButton" name="FiducialsDirectory"/>
          </item>
          <item row="5" column="1">
-          <widget class="ctkDirectoryButton" name="DirectoryButton_RigidAlignmentOutputModelsDirectory"/>
+          <widget class="ctkDirectoryButton" name="OutputDirectory"/>
          </item>
          <item row="5" column="0">
-          <widget class="QLabel" name="label_RigidAlignmentOutputModelsDirectory">
+          <widget class="QLabel">
            <property name="text">
             <string>Output Models Directory </string>
            </property>
