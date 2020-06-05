@@ -1,6 +1,13 @@
-import os, sys
+import os
+import sys
 import unittest
-import vtk, qt, ctk, slicer
+import uuid
+
+import vtk
+import qt
+import ctk
+import slicer
+import slicer.util
 from slicer.ScriptedLoadableModule import *
 import logging
 import csv
@@ -8,6 +15,9 @@ import platform
 import time
 import urllib
 import shutil
+import glob
+import datetime
+
 
 #
 # RigidAlignmentModule
@@ -23,7 +33,7 @@ class RigidAlignmentModule(ScriptedLoadableModule):
     self.parent.title = "SPHARM-PDM Correspondence Improvement"
     self.parent.categories = ["Shape Creation"]
     self.parent.dependencies = []
-    self.parent.contributors = ["Mahmoud Mostapha (UNC), Jared Vicory (Kitware)"]
+    self.parent.contributors = ["Mahmoud Mostapha (UNC), Jared Vicory (Kitware), David Allemang (Kitware)"]
     self.parent.helpText = """
     Rigid alignment of the landmarks on the unit sphere: the input models share the same unit sphere 
     and their landmarks are defined as spacial coordinates (x,y,z) of the input model. 
@@ -32,6 +42,7 @@ class RigidAlignmentModule(ScriptedLoadableModule):
       This work was supported by NIH NIBIB R01EB021391
       (Shape Analysis Toolbox for Medical Image Computing Projects).
     """
+
 
 #
 # RigidAlignmentModuleWidget
@@ -58,27 +69,19 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
     self.layout = self.parent.layout()
     self.widget = widget
     self.layout.addWidget(widget)
-
-    # Global variables of the Interface
-    # Directories
-    self.CollapsibleButton_Directories = self.getWidget('CollapsibleButton_Directories')
-    self.RigidAlignmentInputModelsDirectory = self.getWidget('DirectoryButton_RigidAlignmentInputModelsDirectory')
-    self.RigidAlignmentInputFiducialFilesDirectory = self.getWidget('DirectoryButton_RigidAlignmentInputFiducialFilesDirectory')
-    self.RigidAlignmentCommonSphereDirectory = self.getWidget('DirectoryButton_RigidAlignmentCommonSphereDirectory')
-    self.RigidAlignmentOutputSphericalModelsDirectory = self.getWidget('DirectoryButton_RigidAlignmentOutputSphericalModelsDirectory')
-    self.RigidAlignmentOutputModelsDirectory = self.getWidget('DirectoryButton_RigidAlignmentOutputModelsDirectory')
-    #   Apply CLIs
-    self.ApplyButton = self.getWidget('pushButton_RigidAlignment')
+    self.ui = slicer.util.childWidgetVariables(widget)
 
     # Connections
     # Directories
-    self.RigidAlignmentInputModelsDirectory.connect('directoryChanged(const QString &)', self.onSelect)
-    self.RigidAlignmentInputFiducialFilesDirectory.connect('directoryChanged(const QString &)', self.onSelect)
-    self.RigidAlignmentCommonSphereDirectory.connect('directoryChanged(const QString &)', self.onSelect)
-    self.RigidAlignmentOutputSphericalModelsDirectory.connect('directoryChanged(const QString &)', self.onSelect)
-    self.RigidAlignmentOutputModelsDirectory.connect('directoryChanged(const QString &)', self.onSelect)
+    self.ui.InputDirectory.connect('directoryChanged(const QString &)', self.onSelect)
+    self.ui.FiducialsDirectory.connect('directoryChanged(const QString &)', self.onSelect)
+    self.ui.OutputDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     #   Apply CLIs
-    self.ApplyButton.connect('clicked(bool)', self.onApplyButton)
+    self.ui.ApplyButton.connect('clicked(bool)', self.onApplyButton)
+
+    self.ui.InputDirectory.directory = '/home/allem/Downloads/groups/models'
+    self.ui.FiducialsDirectory.directory = '/home/allem/Downloads/groups/fiducials'
+    self.ui.OutputDirectory.directory = '/home/allem/Downloads/groups/out'
 
     # Refresh Apply button state
     self.onSelect()
@@ -86,43 +89,45 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
   def cleanup(self):
     pass
 
-  # Functions to recover the widget in the .ui file
-  def getWidget(self, objectName):
-    return self.findWidget(self.widget, objectName)
-
-  def findWidget(self, widget, objectName):
-    if widget.objectName == objectName:
-      return widget
-    else:
-      for w in widget.children():
-        resulting_widget = self.findWidget(w, objectName)
-        if resulting_widget:
-          return resulting_widget
-    return None
   #
   #   Directories
   #
   def onSelect(self):
-    InputModelsDirectory = self.RigidAlignmentInputModelsDirectory.directory
-    self.InputModelsDirectory = InputModelsDirectory
-    InputFiducialFilesDirectory = self.RigidAlignmentInputFiducialFilesDirectory.directory
-    self.InputFiducialFilesDirectory = InputFiducialFilesDirectory
-    CommonSphereDirectory = self.RigidAlignmentCommonSphereDirectory.directory
-    self.CommonSphereDirectory = CommonSphereDirectory
-    OutputSphericalModelsDirectory = self.RigidAlignmentOutputSphericalModelsDirectory.directory
-    self.OutputSphericalModelsDirectory = OutputSphericalModelsDirectory
-    OutputModelsDirectory = self.RigidAlignmentOutputModelsDirectory.directory
-    self.OutputModelsDirectory = OutputModelsDirectory
+    self.inputDir = self.ui.InputDirectory.directory
+    self.fiducialsDir = self.ui.FiducialsDirectory.directory
+    self.outputDir = self.ui.OutputDirectory.directory
+
     # Check if each directory has been choosen
-    self.ApplyButton.enabled = self.InputModelsDirectory != "." and self.InputFiducialFilesDirectory != "." and self.CommonSphereDirectory!= "." and self.OutputSphericalModelsDirectory != "." and self.OutputModelsDirectory != "."
+    self.ui.ApplyButton.enabled = '.' not in (self.inputDir, self.fiducialsDir, self.outputDir)
 
   def onApplyButton(self):
     logic = RigidAlignmentModuleLogic()
-    endRigidAlignment = logic.runRigidAlignment(modelsDir=self.InputModelsDirectory, fiducialDir=self.InputFiducialFilesDirectory, sphereDir=self.CommonSphereDirectory, outputsphereDir=self.OutputSphericalModelsDirectory, outputsurfaceDir=self.OutputModelsDirectory)
+    logic.run(
+      modelsDir=self.inputDir,
+      sphereDir=self.inputDir,
+      fiducialsDir=self.fiducialsDir,
+      outModelsDir=self.outputDir,
+      outSphereDir=self.outputDir,
+    )
 
 #
 # RigidAlignmentModuleLogic
 #
+
+def pluckPattern(pattern):
+  """Each file matched by the glob pattern will be mapped to by a hard link in the temporary output directory. The
+  directory path is returned. """
+
+  key = str(uuid.uuid4())
+  target = slicer.util.tempDirectory(key=key)
+
+  for src in glob.iglob(pattern):
+    name = os.path.basename(src)
+    dst = os.path.join(target, name)
+    os.link(src, dst)
+
+  return target
+
 
 class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
@@ -134,150 +139,113 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-  def runRigidAlignment(self, modelsDir, fiducialDir, sphereDir, outputsphereDir, outputsurfaceDir):
-      
-      # ------------------------------------ # 
-      # ---------- RigidAlignment ---------- # 
-      # ------------------------------------ # 
+  def run(self, modelsDir, sphereDir, fiducialsDir, outModelsDir, outSphereDir):
+    models = pluckPattern(os.path.join(modelsDir, '*_pp_surf_SPHARM.vtk'))
+    fiducials = pluckPattern(os.path.join(fiducialsDir, '*_fid.fcsv'))
+    unitSphere = next(glob.iglob(os.path.join(sphereDir, '*_surf_para.vtk')))
 
-      print("--- function runRigidAlignment() ---")
-      """
-      Calling RigidAlignment CLI
-          Arguments:
-           --mesh [<std::string> input models directory]
-           --landmark [<std::string> input fiducial files directory]
-           --sphere [<std::string> common unit sphere]
-           --output [<std::string> output spheres directory] 
-      """
-      print("--- Inspecting Input Data---")
-      # List all the vtk files in the modelsDir
-      listMesh = os.listdir(modelsDir)
-      if listMesh.count(".DS_Store"):
-        listMesh.remove(".DS_Store")
-      listMesh.sort()      
+    results = []
 
-      # Creation of a file name for the common unit sphere
-      listUnitSphere = os.listdir(sphereDir)
-      if listUnitSphere.count(".DS_Store"):
-        listUnitSphere.remove(".DS_Store")
-      UnitSphere = os.path.join(sphereDir, listUnitSphere[0])
-      # UnitSphere = sphereDir + '/' + listUnitSphere[0]
-      
-      print("--- Rigid Alignment Running ---")
-      # Creation of the parameters of Rigid Alignment
-      RigidAlignment_parameters = {}
-      RigidAlignment_parameters["mesh"]       = modelsDir
-      RigidAlignment_parameters["landmark"]   = fiducialDir
-      RigidAlignment_parameters["sphere"]     = UnitSphere
-      RigidAlignment_parameters["output"]     = outputsphereDir
-      RA = slicer.modules.rigidalignment
-      # Launch Rigid Alignment
-      slicer.cli.run(RA, None, RigidAlignment_parameters, wait_for_completion=True)
-      print("--- Rigid Alignment Done ---")
+    try:
+      self.runRigidAlignment(models, fiducials, unitSphere, outSphereDir)
 
-      # ------------------------------------ # 
-      # ------------ SurfRemesh ------------ # 
-      # ------------------------------------ # 
-      print("--- function runSurfRemesh() ---")
-      """
-      Calling SurfRemesh CLI
-          Arguments:
-           --tempModel [<std::string> input sphere]
-           --input [<std::string> input surface]
-           --ref [<std::string> common unit sphere]
-           --output [<std::string> output surface] 
-      """
-     
-      listSphere = os.listdir(outputsphereDir)
-      if listSphere.count(".DS_Store"):
-        listSphere.remove(".DS_Store")
-      listSphere.sort()
+      for name in os.listdir(models):
+        name = name.rsplit('_pp_surf_SPHARM', 1)[0]
 
-      outputMeshes = []
+        model = os.path.join(models, name + '_pp_surf_SPHARM.vtk')
+        sphere = os.path.join(outSphereDir, name + '_rotSphere.vtk')
+        outModel = os.path.join(outModelsDir, name + '_aligned.vtk')
+        fiducial = os.path.join(fiducials, name + '_fid.fcsv')
 
-      for i in range(0,len(listMesh)):
-        Mesh = os.path.join( modelsDir, listMesh[i])
-        # Mesh = modelsDir + '/' + listMesh[i]
-        Sphere = os.path.join(outputsphereDir, listSphere[i])
-        # Sphere = outputsphereDir + '/' + listSphere[i]
-        OutputMesh = os.path.join(outputsurfaceDir, listSphere[i].split("_rotSphere.vtk",1)[0] + '_aligned.vtk')
-        # OutputMesh = outputsurfaceDir + '/' + listSphere[i].split("_rotSphere.vtk",1)[0] + '_aligned.vtk'
-        # Creation of the parameters of SurfRemesh
-        SurfRemesh_parameters = {}
-        SurfRemesh_parameters["temp"]       = Sphere
-        SurfRemesh_parameters["input"]      = Mesh
-        SurfRemesh_parameters["ref"]        = UnitSphere
-        SurfRemesh_parameters["output"]     = OutputMesh
-        SR = slicer.modules.sremesh
-        # Launch SurfRemesh
-        slicer.cli.run(SR, None, SurfRemesh_parameters, wait_for_completion=True)
-        print("--- Surface " + str(i) + " Remesh Done ---")
-        # ------------------------------------ # 
-        # ------------ Color Maps ------------ # 
-        # ------- and encode landmarks ------- #
-        # ------------------------------------ # 
-        reader_in = vtk.vtkPolyDataReader()
-        reader_in.SetFileName(str(Mesh))
-        reader_in.Update()
-        init_mesh = reader_in.GetOutput()
-        phiArray = init_mesh.GetPointData().GetScalars("_paraPhi")
+        self.runSurfRemesh(sphere, model, unitSphere, outModel)
+        res = self.buildColorMap(model, fiducial, outModel)
 
-        reader_out = vtk.vtkPolyDataReader()
-        reader_out.SetFileName(str(OutputMesh))
-        reader_out.Update()
-        new_mesh = reader_out.GetOutput()
-        new_mesh.GetPointData().SetActiveScalars("_paraPhi")
-        new_mesh.GetPointData().SetScalars(phiArray)
-        new_mesh.Modified()
+        results.append(res)
+    finally:
+      shutil.rmtree(models)
+      shutil.rmtree(fiducials)
 
-        # encode landmarks
-        # Fiducial = fiducialDir + '/' + listMesh[i].split("_pp_surf_SPHARM",1)[0] + "_fid.fcsv"
-        Fiducial = os.path.join(fiducialDir, "{}_fid.fcsv".format(listMesh[i].split("_pp_surf_SPHARM",1)[0]))
-        fid = open(Fiducial)
-        lines = fid.readlines()
-        pts = []
-        with open(Fiducial) as fid:
-          lines = fid.readlines()
-          for line in lines:
-            if line[0] != '#':
-              s = line.split(',')
-              pt = [float(s[1]), float(s[2]), float(s[3])]
-              pts.append(pt)
-              print(line)
+    self.showViewer(results)
 
-        loc = vtk.vtkKdTreePointLocator()
-        loc.SetDataSet(new_mesh)
-        loc.BuildLocator()
+  def runRigidAlignment(self, models, fiducials, sphere, outputDir):
+    args = {
+      'mesh': models,
+      'landmark': fiducials,
+      'sphere': sphere,
+      'output': outputDir
+    }
 
-        ptArray = vtk.vtkDoubleArray()
-        ptArray.SetNumberOfComponents(1)
-        ptArray.SetNumberOfValues(new_mesh.GetNumberOfPoints())
-        ptArray.SetName('Landmarks')
-        for ind in range(0,ptArray.GetNumberOfValues()):
-          ptArray.SetValue(ind,0.0)
-        
-        for l_ind in range(0, len(pts)):
-          ind = loc.FindClosestPoint(pts[l_ind])
-          ptArray.SetValue(ind,l_ind+1)
-        
-        new_mesh.GetPointData().SetActiveScalars("Landmarks")
-        new_mesh.GetPointData().AddArray(ptArray)
-        new_mesh.Modified()
+    logging.info('Launching RigidAlignment Module.')
+    slicer.cli.run(slicer.modules.rigidalignment, None, args, wait_for_completion=True)
+    logging.info('RigidAlignment Completed.')
 
-        # write results
-        polyDataWriter = vtk.vtkPolyDataWriter()
-        polyDataWriter.SetInputData(new_mesh)
-        polyDataWriter.SetFileName(str(OutputMesh))
-        polyDataWriter.Write()
+  def runSurfRemesh(self, sphere, model, unitSphere, outModel):
+    args = {
+      'temp': sphere,
+      'input': model,
+      'ref': unitSphere,
+      'output': outModel,
+    }
 
-        outputMeshes.append((new_mesh, str(OutputMesh)))
-      print("--- Surf Remesh Done ---")
+    try:
+      logging.info('Launching SRemesh Module.')
+      slicer.cli.run(slicer.modules.sremesh, None, args, wait_for_completion=True)
+      logging.info('SRemesh Completed.')
+    finally:
+      pass
 
-      print("--- Inspecting Results ---")
-      # Load vtk files in ShapePopulationViewer
-      slicer.modules.shapepopulationviewer.widgetRepresentation().deleteModels()
-      for mesh in outputMeshes:
-        polydata, modelName = mesh
-        slicer.modules.shapepopulationviewer.widgetRepresentation().loadModel(polydata, modelName)
+  def buildColorMap(self, model, fiducial, outModel):
+    reader_in = vtk.vtkPolyDataReader()
+    reader_in.SetFileName(str(model))
+    reader_in.Update()
+    init_mesh = reader_in.GetOutput()
+    phiArray = init_mesh.GetPointData().GetScalars("_paraPhi")
 
-      slicer.util.selectModule(slicer.modules.shapepopulationviewer)
+    reader_out = vtk.vtkPolyDataReader()
+    reader_out.SetFileName(str(outModel))
+    reader_out.Update()
+    new_mesh = reader_out.GetOutput()
+    new_mesh.GetPointData().SetActiveScalars("_paraPhi")
+    new_mesh.GetPointData().SetScalars(phiArray)
+    new_mesh.Modified()
+
+    with open(fiducial) as fid:
+      lines = fid.readlines()
+      pts = []
+      for line in lines:
+        if line[0] != '#':
+          s = line.split(',')
+          pt = [float(s[1]), float(s[2]), float(s[3])]
+          pts.append(pt)
+
+    loc = vtk.vtkKdTreePointLocator()
+    loc.SetDataSet(new_mesh)
+    loc.BuildLocator()
+
+    ptArray = vtk.vtkDoubleArray()
+    ptArray.SetNumberOfComponents(1)
+    ptArray.SetNumberOfValues(new_mesh.GetNumberOfPoints())
+    ptArray.SetName('Landmarks')
+    for ind in range(0, ptArray.GetNumberOfValues()):
+      ptArray.SetValue(ind, 0.0)
+
+    for l_ind in range(0, len(pts)):
+      ind = loc.FindClosestPoint(pts[l_ind])
+      ptArray.SetValue(ind, l_ind + 1)
+
+    new_mesh.GetPointData().AddArray(ptArray)
+
+    # write results
+    polyDataWriter = vtk.vtkPolyDataWriter()
+    polyDataWriter.SetInputData(new_mesh)
+    polyDataWriter.SetFileName(str(outModel))
+    polyDataWriter.Write()
+
+    return new_mesh, str(outModel)
+
+  def showViewer(self, results):
+    viewer = slicer.modules.shapepopulationviewer.widgetRepresentation()
+    viewer.deleteModels()
+    for polydata, name in results:
+      viewer.loadModel(polydata, name)
+    slicer.util.selectModule(slicer.modules.shapepopulationviewer)
