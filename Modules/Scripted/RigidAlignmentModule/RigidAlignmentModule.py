@@ -1,22 +1,14 @@
+import glob
+import logging
 import os
-import sys
-import unittest
+import shutil
 import uuid
 
-import vtk
 import qt
-import ctk
 import slicer
 import slicer.util
+import vtk
 from slicer.ScriptedLoadableModule import *
-import logging
-import csv
-import platform
-import time
-import urllib
-import shutil
-import glob
-import datetime
 
 
 #
