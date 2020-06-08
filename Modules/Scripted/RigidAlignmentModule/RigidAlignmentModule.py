@@ -1,14 +1,15 @@
-import glob
+import csv
+import datetime
 import logging
 import os
-import shutil
-import uuid
+import pathlib
 
 import qt
 import slicer
 import slicer.util
-import vtk
+import slicer.cli
 from slicer.ScriptedLoadableModule import *
+import vtk
 
 
 #
@@ -102,21 +103,6 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
 # RigidAlignmentModuleLogic
 #
 
-def pluckPattern(pattern):
-  """Each file matched by the glob pattern will be mapped to by a hard link in the temporary output directory. The
-  directory path is returned. """
-
-  key = str(uuid.uuid4())
-  target = slicer.util.tempDirectory(key=key)
-
-  for src in glob.iglob(pattern):
-    name = os.path.basename(src)
-    dst = os.path.join(target, name)
-    os.link(src, dst)
-
-  return target
-
-
 class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
   computation done by your module.  The interface
@@ -128,39 +114,27 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
   """
 
   def run(self, modelsDir, sphereDir, fiducialsDir, outModelsDir, outSphereDir):
-    models = pluckPattern(os.path.join(modelsDir, '*_pp_surf_SPHARM.vtk'))
-    fiducials = pluckPattern(os.path.join(fiducialsDir, '*_fid.fcsv'))
-    unitSphere = next(glob.iglob(os.path.join(sphereDir, '*_surf_para.vtk')))
+    unitSphere = next(pathlib.Path(sphereDir).glob('*_surf_para.vtk'))
+    models = pathlib.Path(modelsDir).glob('*_pp_surf_SPHARM.vtk')
+    fiducials = pathlib.Path(fiducialsDir).glob('*_fid.fcsv')
 
-    results = []
+    temp = slicer.util.tempDirectory(key='RigidAlignment')
+    body = zip(sorted(fiducials), sorted(models))
 
-    try:
-      self.runRigidAlignment(models, fiducials, unitSphere, outSphereDir)
+    now = datetime.datetime.now().isoformat()
+    inputCSV = temp / '{}.csv'.format(now)
 
-      for name in os.listdir(models):
-        name = name.rsplit('_pp_surf_SPHARM', 1)[0]
+    with inputCSV.open('w') as f:
+      writer = csv.writer(f)
+      writer.writerows(body)
 
-        model = os.path.join(models, name + '_pp_surf_SPHARM.vtk')
-        sphere = os.path.join(outSphereDir, name + '_rotSphere.vtk')
-        outModel = os.path.join(outModelsDir, name + '_aligned.vtk')
-        fiducial = os.path.join(fiducials, name + '_fid.fcsv')
+    self.runRigidAlignment(inputCSV, unitSphere, outSphereDir)
 
-        self.runSurfRemesh(sphere, model, unitSphere, outModel)
-        res = self.buildColorMap(model, fiducial, outModel)
-
-        results.append(res)
-    finally:
-      shutil.rmtree(models)
-      shutil.rmtree(fiducials)
-
-    self.showViewer(results)
-
-  def runRigidAlignment(self, models, fiducials, sphere, outputDir):
+  def runRigidAlignment(self, inputCSV, sphere, outputDir):
     args = {
-      'mesh': models,
-      'landmark': fiducials,
-      'sphere': sphere,
-      'output': outputDir
+      'inputCSV': str(inputCSV),
+      'sphere': str(sphere),
+      'output': str(outputDir)
     }
 
     logging.info('Launching RigidAlignment Module.')
