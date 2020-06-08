@@ -118,11 +118,11 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
     models = pathlib.Path(modelsDir).glob('*_pp_surf_SPHARM.vtk')
     fiducials = pathlib.Path(fiducialsDir).glob('*_fid.fcsv')
 
-    temp = slicer.util.tempDirectory(key='RigidAlignment')
-    body = zip(sorted(fiducials), sorted(models))
+    temp = pathlib.Path(slicer.util.tempDirectory(key='RigidAlignment'))
 
     now = datetime.datetime.now().isoformat()
     inputCSV = temp / '{}.csv'.format(now)
+    body = zip(sorted(fiducials), sorted(models))
 
     with inputCSV.open('w') as f:
       writer = csv.writer(f)
