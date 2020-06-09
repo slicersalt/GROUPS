@@ -1,5 +1,6 @@
 import csv
 import datetime
+import glob
 import logging
 import os
 import pathlib
@@ -84,21 +85,25 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
   #   Directories
   #
   def onSelect(self):
-    self.inputDir = self.ui.InputDirectory.directory
-    self.commonSphereDir = self.ui.CommonSphereDirectory.directory
-    self.fiducialsDir = self.ui.FiducialsDirectory.directory
-    self.outputDir = self.ui.OutputDirectory.directory
-    self.outputSphereDir = self.ui.OutputSphereDirectory.directory
+    self.inputDir = pathlib.Path(self.ui.InputDirectory.directory)
+    self.commonSphereDir = pathlib.Path(self.ui.CommonSphereDirectory.directory)
+    self.fiducialsDir = pathlib.Path(self.ui.FiducialsDirectory.directory)
+    self.outputDir = pathlib.Path(self.ui.OutputDirectory.directory)
+    self.outputSphereDir = pathlib.Path(self.ui.OutputSphereDirectory.directory)
 
     # Check if each directory has been choosen
     self.ui.ApplyButton.enabled = '.' not in (self.inputDir, self.fiducialsDir, self.outputDir)
 
   def onApplyButton(self):
+    models = self.inputDir.glob('*_pp_surf_SPHARM.vtk')
+    fiducials = self.fiducialsDir.glob('*_fid.fcsv')
+    unitSphere = next(self.commonSphereDir.glob('*_surf_para.vtk'))
+
     logic = RigidAlignmentModuleLogic()
     logic.run(
-      modelsDir=self.inputDir,
-      sphereDir=self.commonSphereDir,
-      fiducialsDir=self.fiducialsDir,
+      models=models,
+      fiducials=fiducials,
+      unitSphere=unitSphere,
       outModelsDir=self.outputDir,
       outSphereDir=self.outputSphereDir,
     )
@@ -117,16 +122,22 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
 
-  def run(self, modelsDir, sphereDir, fiducialsDir, outModelsDir, outSphereDir):
-    unitSphere = next(pathlib.Path(sphereDir).glob('*_surf_para.vtk'))
-    models = pathlib.Path(modelsDir).glob('*_pp_surf_SPHARM.vtk')
-    fiducials = pathlib.Path(fiducialsDir).glob('*_fid.fcsv')
+  def run(self, models, fiducials, unitSphere, outModelsDir, outSphereDir):
+    """
+    models: A sequence of paths to SPHARM model files. (*_pp_surf_SPHARM.vtk)
+    fiducials: A sequence of paths to fiducial data files. (*_fid.fcsv)
+    unitSphere: A path to a unit sphere for alignment. (*_surf_para.vtk)
+    outputDir: Output directory for aligned spheres.
+    """
+
+    models = sorted(models)
+    fiducials = sorted(fiducials)
+    body = list(zip(models, fiducials))
 
     temp = pathlib.Path(slicer.util.tempDirectory(key='RigidAlignment'))
 
     now = datetime.datetime.now().isoformat()
     inputCSV = temp / '{}.csv'.format(now)
-    body = list(zip(sorted(models), sorted(fiducials)))  # we'll iterate through body again.
 
     with inputCSV.open('w', newline='') as f:
       for row in body:
