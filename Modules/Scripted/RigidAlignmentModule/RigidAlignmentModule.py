@@ -67,8 +67,10 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
     # Connections
     # Directories
     self.ui.InputDirectory.connect('directoryChanged(const QString &)', self.onSelect)
+    self.ui.CommonSphereDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     self.ui.FiducialsDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     self.ui.OutputDirectory.connect('directoryChanged(const QString &)', self.onSelect)
+    self.ui.OutputSphereDirectory.connect('directoryChanged(const QString &)', self.onSelect)
     #   Apply CLIs
     self.ui.ApplyButton.connect('clicked(bool)', self.onApplyButton)
 
@@ -83,8 +85,10 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
   #
   def onSelect(self):
     self.inputDir = self.ui.InputDirectory.directory
+    self.commonSphereDir = self.ui.CommonSphereDirectory.directory
     self.fiducialsDir = self.ui.FiducialsDirectory.directory
     self.outputDir = self.ui.OutputDirectory.directory
+    self.outputSphereDir = self.ui.OutputSphereDirectory.directory
 
     # Check if each directory has been choosen
     self.ui.ApplyButton.enabled = '.' not in (self.inputDir, self.fiducialsDir, self.outputDir)
@@ -93,10 +97,10 @@ class RigidAlignmentModuleWidget(ScriptedLoadableModuleWidget):
     logic = RigidAlignmentModuleLogic()
     logic.run(
       modelsDir=self.inputDir,
-      sphereDir=self.inputDir,
+      sphereDir=self.commonSphereDir,
       fiducialsDir=self.fiducialsDir,
       outModelsDir=self.outputDir,
-      outSphereDir=self.outputDir,
+      outSphereDir=self.outputSphereDir,
     )
 
 #
@@ -122,13 +126,31 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
 
     now = datetime.datetime.now().isoformat()
     inputCSV = temp / '{}.csv'.format(now)
-    body = zip(sorted(fiducials), sorted(models))
+    body = list(zip(sorted(models), sorted(fiducials)))  # we'll iterate through body again.
 
-    with inputCSV.open('w') as f:
-      writer = csv.writer(f)
-      writer.writerows(body)
+    with inputCSV.open('w', newline='') as f:
+      for row in body:
+        row = (str(e) + ',' for e in row)
+        line = ''.join(row) + '\n'
+        f.write(line)
 
     self.runRigidAlignment(inputCSV, unitSphere, outSphereDir)
+
+    results = []
+
+    for model, fiducial in body:
+      name = model.name.rsplit('_pp_surf_SPHARM', 1)[0]
+
+      sphere = os.path.join(outSphereDir, name + '_rotSphere.vtk')
+      outModel = os.path.join(outModelsDir, name + '_aligned.vtk')
+
+      self.runSurfRemesh(sphere, model, unitSphere, outModel)
+      res = self.buildColorMap(model, fiducial, outModel)
+
+      results.append(res)
+
+    if results:
+      self.showViewer(results)
 
   def runRigidAlignment(self, inputCSV, sphere, outputDir):
     args = {
@@ -143,18 +165,15 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
 
   def runSurfRemesh(self, sphere, model, unitSphere, outModel):
     args = {
-      'temp': sphere,
-      'input': model,
-      'ref': unitSphere,
-      'output': outModel,
+      'temp': str(sphere),
+      'input': str(model),
+      'ref': str(unitSphere),
+      'output': str(outModel),
     }
 
-    try:
-      logging.info('Launching SRemesh Module.')
-      slicer.cli.run(slicer.modules.sremesh, None, args, wait_for_completion=True)
-      logging.info('SRemesh Completed.')
-    finally:
-      pass
+    logging.info('Launching SRemesh Module.')
+    slicer.cli.run(slicer.modules.sremesh, None, args, wait_for_completion=True)
+    logging.info('SRemesh Completed.')
 
   def buildColorMap(self, model, fiducial, outModel):
     reader_in = vtk.vtkPolyDataReader()
