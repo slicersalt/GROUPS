@@ -124,6 +124,8 @@ class RigidAlignmentModuleLogic(ScriptedLoadableModuleLogic):
 
   def run(self, models, fiducials, unitSphere, outModelsDir, outSphereDir):
     """
+    Note that all paths are expected to be pathlib paths.
+
     models: A sequence of paths to SPHARM model files. (*_pp_surf_SPHARM.vtk)
     fiducials: A sequence of paths to fiducial data files. (*_fid.fcsv)
     unitSphere: A path to a unit sphere for alignment. (*_surf_para.vtk)
